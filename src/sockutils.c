@@ -1,5 +1,6 @@
 #include "common.h"
 
+/* Returns 1 on success, 0 on failure */
 int sock_send(int sock, Message *message)
 {
     switch (message->op)
@@ -11,6 +12,7 @@ int sock_send(int sock, Message *message)
     case OP_NS_COPY:
         message->size = 2 * FILENAME_MAX_LEN;
         break;
+    case OP_NS_INIT_FILE:
     case OP_NS_CREATE:
     case OP_NS_DELETE:
     case OP_SS_READ:
@@ -18,7 +20,7 @@ int sock_send(int sock, Message *message)
     case OP_SS_INFO:
     case OP_SS_STREAM:
     case OP_NS_GET_SS:
-        message->size = FILENAME_MAX_LEN;
+        message->size = strlen(((MessageFile *)message)->file) + 1;
         break;
     case OP_NS_INIT_SS:
     case OP_ACK:
@@ -30,9 +32,21 @@ int sock_send(int sock, Message *message)
     case OP_RAW:
         break;
     default:
-        return -1;
+        return 0;
     }
-    return write(sock, message, sizeof(Message) + message->size) == sizeof(Message);
+
+    int tot = sizeof(Message) + message->size;
+    int sent = 0;
+    do
+    {
+        int tmp = write(sock, (void *)message + sent, tot - sent);
+        if (tmp <= 0)
+        {
+            return 0;
+        }
+        sent += tmp;
+    } while (sent < tot);
+    return 1;
 }
 
 Message *sock_get(int sock)
@@ -68,7 +82,7 @@ void ipv4_print_addr(struct sockaddr_in *addr, const char *interface)
         inet_ntop(AF_INET, &addr->sin_addr, ip_str, sizeof(ip_str));
         if (interface)
         {
-            printf("%s (%s)\n", ip_str, interface);
+            printf("[SELF] %s (%s)\n", ip_str, interface);
         }
         else
         {
@@ -77,7 +91,7 @@ void ipv4_print_addr(struct sockaddr_in *addr, const char *interface)
     }
     else if (!interface)
     {
-        printf("unknown family: %d\n", addr->sin_family);
+        printf("UNKNOWN (family: %d)\n", addr->sin_family);
     }
 }
 
@@ -100,8 +114,8 @@ int _sock_print_info(char *port)
         return -1;
     }
 
-    printf("Server listening in wildcard IPv4 address on port %s\n", port);
-    printf("Here are some possible addresses clients can use:\n");
+    printf("[SELF] Server listening in wildcard IPv4 address on port %s\n", port);
+    printf("[SELF] Here are some possible addresses clients can use:\n");
     for (ifa = ifaddr; ifa; ifa = ifa->ifa_next)
     {
         if (ifa->ifa_addr == NULL)
@@ -132,7 +146,7 @@ int sock_init(char *port)
     if ((status = getaddrinfo(NULL, port, &hints, &res)))
     {
         fprintf(stderr,
-                "Could not connect to server: %s\n",
+                "[SELF] Could not connect to server: %s\n",
                 gai_strerror(status));
         return -1;
     }
@@ -158,7 +172,7 @@ int sock_init(char *port)
     }
     goto end;
 error:
-    perror("Could not start server");
+    perror("[SELF] Could not start server");
     ret = -1;
 end:
     freeaddrinfo(res);
@@ -173,7 +187,7 @@ int sock_connect(char *node, char *port, char *listen_port)
     if ((status = getaddrinfo(node, port, NULL, &res)))
     {
         fprintf(stderr,
-                "Could not connect to server: %s\n",
+                "[SELF] Could not connect to server: %s\n",
                 gai_strerror(status));
         return -1;
     }
@@ -184,6 +198,8 @@ int sock_connect(char *node, char *port, char *listen_port)
         {
             if (connect(sock_fd, i->ai_addr, i->ai_addrlen) == 0)
             {
+                printf("[SELF] Connected to server: ");
+                ipv4_print_addr((struct sockaddr_in *)i->ai_addr, NULL);
                 break;
             }
             close(sock_fd);
@@ -194,7 +210,7 @@ int sock_connect(char *node, char *port, char *listen_port)
     freeaddrinfo(res);
     if (sock_fd == -1)
     {
-        fprintf(stderr, "Could not connect to server\n");
+        fprintf(stderr, "[SELF] Could not connect to server\n");
         return -1;
     }
 
@@ -222,7 +238,7 @@ int sock_accept(
     int ret = accept(sock_fd, (struct sockaddr *)sock_addr, &addrlen);
     if (ret < 0)
     {
-        perror("[SERVER] Accept failed");
+        perror("[SELF] Accept failed");
         return -1;
     }
     Message *init_msg = sock_get(ret);
@@ -234,17 +250,17 @@ int sock_accept(
     switch (init_msg->op)
     {
     case OP_NS_INIT_SS:
-        printf("[SERVER] Connected storage server: ");
+        printf("[STORAGE SERVER %d] Connected storage server on: ", ret);
         ipv4_print_addr(sock_addr, NULL);
 
-        printf("[SERVER] That storage server is listening on: ");
+        printf("[STORAGE SERVER %d] This is listening on: ", ret);
         *ss_sock_addr = *sock_addr;
         ss_sock_addr->sin_port = htons(((MessageInt *)init_msg)->info);
         ipv4_print_addr(ss_sock_addr, NULL);
 
         break;
     case OP_NS_INIT_CLIENT:
-        printf("[SERVER] Connected client: ");
+        printf("[CLIENT %d] Connected client on: ", ret);
         ipv4_print_addr(sock_addr, NULL);
         break;
     default:

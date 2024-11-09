@@ -1,6 +1,7 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
+#include <errno.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <pthread.h>
@@ -15,8 +16,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
-#define FILENAME_MAX_LEN 1024
+#define FILENAME_MAX_LEN 4096
 
 #define NS_MAX_CONN 1024
 
@@ -32,6 +35,7 @@ typedef enum _Operation
     OP_RAW,            /* Message */
     OP_NS_INIT_SS,     /* MessageInt */
     OP_NS_INIT_CLIENT, /* Message */
+    OP_NS_INIT_FILE,   /* MessageFile */
     OP_NS_CREATE,      /* MessageFile */
     OP_NS_DELETE,      /* MessageFile */
     OP_NS_COPY,        /* MessageFile2 */

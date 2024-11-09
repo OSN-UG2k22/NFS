@@ -25,15 +25,6 @@ SServerInfo *sserver_register(struct sockaddr_in *addr, int sock_fd)
 void *handle_client(void *client_socket)
 {
     int sock = (int)(intptr_t)client_socket;
-
-    struct sockaddr addr;
-    socklen_t addr_len = sizeof(struct sockaddr);
-    if (getpeername(sock, &addr, &addr_len) != 0)
-    {
-        perror("[SERVER] getpeername failed");
-        close(sock);
-        return NULL;
-    }
     while (1)
     {
         Message *msg = sock_get(sock);
@@ -44,8 +35,7 @@ void *handle_client(void *client_socket)
         free(msg);
     }
 
-    printf("[SERVER] Client disconnected: ");
-    ipv4_print_addr((struct sockaddr_in *)&addr, NULL);
+    printf("[CLIENT %d] Disconnected\n", sock);
     close(sock);
     return NULL;
 }
@@ -53,6 +43,19 @@ void *handle_client(void *client_socket)
 void *handle_ss(void *sserver_void)
 {
     SServerInfo *sserver = (SServerInfo *)sserver_void;
+    /* Get available paths */
+    while (1)
+    {
+        MessageFile *msg = (MessageFile *)sock_get(sserver->sock_fd);
+        if (msg->op != OP_NS_INIT_FILE || !(msg->file[0]))
+        {
+            free(msg);
+            break;
+        }
+        printf("[STORAGE SERVER %d] Has file '%s'\n", sserver->sock_fd, msg->file);
+        free(msg);
+    }
+    printf("[STORAGE SERVER %d] Finished exposing all files, now ready to process requests\n", sserver->sock_fd);
     while (1)
     {
         Message *msg = sock_get(sserver->sock_fd);
@@ -62,8 +65,7 @@ void *handle_ss(void *sserver_void)
         }
         free(msg);
     }
-    printf("[SERVER] Storage server disconnected: ");
-    ipv4_print_addr(&sserver->addr, NULL);
+    printf("[STORAGE SERVER %d] Disconnected\n", sserver->sock_fd);
     pthread_mutex_lock(&sservers_lock);
     close(sserver->sock_fd);
     sserver->is_used = 0;
@@ -80,7 +82,7 @@ int main(int argc, char *argv[])
     }
     else if (argc > 2)
     {
-        fprintf(stderr, "Expected at most 1 argument, got %d\n", argc - 1);
+        fprintf(stderr, "[SELF] Expected at most 1 argument, got %d\n", argc - 1);
         return 1;
     }
 
@@ -102,12 +104,12 @@ int main(int argc, char *argv[])
                 if (!sserver)
                 {
                     close(conn_fd);
-                    fprintf(stderr, "Exceeded limit on storage servers!\n");
+                    fprintf(stderr, "[SELF] Exceeded limit on storage servers!\n");
                     continue;
                 }
                 if (pthread_create(&thread_id, NULL, handle_ss, (void *)sserver) != 0)
                 {
-                    perror("Thread creation failed");
+                    perror("[SELF] Thread creation failed");
                     continue;
                 }
             }
@@ -115,7 +117,7 @@ int main(int argc, char *argv[])
             {
                 if (pthread_create(&thread_id, NULL, handle_client, (void *)(intptr_t)conn_fd) != 0)
                 {
-                    perror("Thread creation failed");
+                    perror("[SELF] Thread creation failed");
                     continue;
                 }
             }

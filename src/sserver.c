@@ -1,5 +1,68 @@
 #include "common.h"
 
+/* Returns 1 on success, 0 on error */
+int _sserver_send_files(int sock, MessageFile *cur)
+{
+    struct dirent *entry;
+    DIR *dir = opendir(cur->file);
+    if (!dir)
+    {
+        switch (errno)
+        {
+        case EACCES:
+            /* Ignore permission error, don't handle path */
+            return 1;
+        case ENOTDIR:
+            /* Send file */
+            cur->op = OP_NS_INIT_FILE;
+            printf("[SELF] Exposing file '%s'\n", cur->file);
+            return sock_send(sock, (Message *)cur);
+        default:
+            perror("[SELF] open dir failed");
+            return 0;
+        }
+    }
+
+    int ret = 1;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        MessageFile new;
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
+            continue;
+        }
+
+        int len = snprintf(new.file, sizeof(new.file), "%s/%s", cur->file, entry->d_name);
+        if (len <= 0 || len >= (int)sizeof(new.file))
+        {
+            continue;
+        }
+
+        if (!_sserver_send_files(sock, &new))
+        {
+            ret = 0;
+            break;
+        }
+    }
+    closedir(dir);
+    return ret;
+}
+
+/* Returns 1 on success, 0 on error */
+int sserver_send_files(int sock, const char *path)
+{
+    MessageFile cur;
+    strcpy(cur.file, path);
+    int ret = _sserver_send_files(sock, &cur);
+
+    /* Send empty file to signal end */
+    cur.op = OP_NS_INIT_FILE;
+    cur.file[0] = '\0';
+    ret &= sock_send(sock, (Message *)&cur);
+    printf("[SELF] Finsihed exposing all files, now ready to process requests\n");
+    return ret;
+}
+
 int main(int argc, char *argv[])
 {
     char *storage_path = NULL;
@@ -33,20 +96,29 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    printf("[SERVER] Started storage server on %s\n", storage_path);
+    printf("[SELF] Started storage server on %s\n", storage_path);
     int nserver_fd = sock_connect(nserver_host, nserver_port, sserver_port);
-    if (nserver_fd >= 0)
+    if (nserver_fd < 0)
     {
-        while (1)
+        goto end;
+    }
+
+    if (!sserver_send_files(nserver_fd, storage_path))
+    {
+        goto end;
+    }
+
+    while (1)
+    {
+        struct sockaddr_in sock_addr, ss_sock_addr = {0};
+        int conn_fd = sock_accept(sserver_fd, &sock_addr, &ss_sock_addr);
+        if (conn_fd < 0)
         {
-            struct sockaddr_in sock_addr, ss_sock_addr = {0};
-            int conn_fd = sock_accept(sserver_fd, &sock_addr, &ss_sock_addr);
-            if (conn_fd < 0)
-            {
-                break;
-            }
+            break;
         }
     }
+
+end:
     close(sserver_fd);
     close(nserver_fd);
     return 0;
