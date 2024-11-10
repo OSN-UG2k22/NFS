@@ -14,10 +14,12 @@
 #include <ifaddrs.h>
 #include <poll.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <vlc/vlc.h>
+#include <inttypes.h>
+
 
 #define FILENAME_MAX_LEN 4096
 
@@ -41,7 +43,8 @@ typedef enum _Operation
     OP_NS_COPY,        /* MessageFile2 */
     OP_NS_GET_SS,      /* MessageFile */
     OP_NS_REPLY_SS,    /* MessageAddr */
-    OP_NS_LS,          /* Message */
+    OP_NS_LS,          /* MessageFile */
+    OP_NS_LSP,         /* Message */
     OP_SS_READ,        /* MessageFile */
     OP_SS_WRITE,       /* MessageFile */
     OP_SS_INFO,        /* MessageFile */
@@ -104,5 +107,7 @@ int sock_accept(
     int sock_fd, struct sockaddr_in *sock_addr, struct sockaddr_in *ss_sock_addr);
 int sock_send(int sock, Message *message);
 Message *sock_get(int sock);
+
+void stream_music(char* ip,int port);
 
 #endif
