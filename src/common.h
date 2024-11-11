@@ -20,14 +20,12 @@
 #include <vlc/vlc.h>
 #include <inttypes.h>
 
-
 #define FILENAME_MAX_LEN 4096
 
 #define NS_MAX_CONN 1024
 
 #define DEFAULT_HOST "127.0.0.1"
 #define NS_DEFAULT_PORT "4269"
-#define SS_DEFAULT_PORT "6942"
 
 /* Any message sent over the network must have one of these values in the
  * header */
@@ -40,11 +38,10 @@ typedef enum _Operation
     OP_NS_INIT_FILE,   /* MessageFile */
     OP_NS_CREATE,      /* MessageFile */
     OP_NS_DELETE,      /* MessageFile */
-    OP_NS_COPY,        /* MessageFile2 */
+    OP_NS_COPY,        /* MessageFile */
     OP_NS_GET_SS,      /* MessageFile */
     OP_NS_REPLY_SS,    /* MessageAddr */
     OP_NS_LS,          /* MessageFile */
-    OP_NS_LSP,         /* Message */
     OP_SS_READ,        /* MessageFile */
     OP_SS_WRITE,       /* MessageFile */
     OP_SS_INFO,        /* MessageFile */
@@ -55,7 +52,28 @@ typedef enum _ErrCode
 {
     ERR_NONE, /* No error, successful transaction */
     ERR_CONN, /* Some error in connection */
+    ERR_REQ,  /* Invalid request */
+    ERR_SS,   /* Could not find SS to complete request */
+    ERR_SYNC, /* Synchronisation issue, invalid type of message recieved */
 } ErrCode;
+
+static inline char *errcode_to_str(ErrCode ecode)
+{
+    switch (ecode)
+    {
+    case ERR_NONE:
+        return "Success";
+    case ERR_CONN:
+        return "Connection error";
+    case ERR_REQ:
+        return "Invalid request";
+    case ERR_SS:
+        return "Could not fetch storage server";
+    case ERR_SYNC:
+        return "Synchronization issue, unexpected type of message recieved";
+    }
+    return "Invalid error code";
+}
 
 typedef struct _Message
 {
@@ -67,16 +85,8 @@ typedef struct _MessageFile
 {
     Operation op;
     int size;
-    char file[FILENAME_MAX_LEN];
+    char file[2 * FILENAME_MAX_LEN]; /* Need space for upto two files, : separated) */
 } MessageFile;
-
-typedef struct _MessageFile2
-{
-    Operation op;
-    int size;
-    char file[FILENAME_MAX_LEN];
-    char file2[FILENAME_MAX_LEN];
-} MessageFile2;
 
 typedef struct _MessageInt
 {
@@ -89,7 +99,7 @@ typedef struct _MessageAddr
 {
     Operation op;
     int size;
-    struct sockaddr addr;
+    struct sockaddr_in addr;
 } MessageAddr;
 
 typedef struct _SServerInfo
@@ -107,7 +117,9 @@ int sock_accept(
     int sock_fd, struct sockaddr_in *sock_addr, struct sockaddr_in *ss_sock_addr);
 int sock_send(int sock, Message *message);
 Message *sock_get(int sock);
+void sock_send_ack(int sock, ErrCode *ecode);
+ErrCode sock_get_ack(int sock);
 
-void stream_music(char* ip,int port);
+void stream_music(char *ip, int port);
 
 #endif

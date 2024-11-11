@@ -10,6 +10,7 @@ int _sserver_send_files(int sock, MessageFile *cur)
         switch (errno)
         {
         case EACCES:
+        case ENOENT:
             /* Ignore permission error, don't handle path */
             return 1;
         case ENOTDIR:
@@ -59,7 +60,14 @@ int sserver_send_files(int sock, const char *path)
     cur.op = OP_NS_INIT_FILE;
     cur.file[0] = '\0';
     ret &= sock_send(sock, (Message *)&cur);
-    printf("[SELF] Finsihed exposing all files, now ready to process requests\n");
+    if (ret)
+    {
+        printf("[SELF] Finsihed exposing all files, now ready to process requests\n");
+    }
+    else
+    {
+        printf("[SELF] Failed while exposing files to naming server\n");
+    }
     return ret;
 }
 
@@ -68,17 +76,14 @@ int main(int argc, char *argv[])
     char *storage_path = NULL;
     char *nserver_host = DEFAULT_HOST;
     char *nserver_port = NS_DEFAULT_PORT;
-    char *sserver_port = SS_DEFAULT_PORT;
+    char sserver_port[6] = "0";
     switch (argc)
     {
-    case 5:
-        nserver_port = argv[4];
-        /* Fall through */
     case 4:
-        nserver_host = argv[3];
+        nserver_port = argv[3];
         /* Fall through */
     case 3:
-        sserver_port = argv[2];
+        nserver_host = argv[2];
         /* Fall through */
     case 2:
         storage_path = argv[1];
@@ -86,7 +91,7 @@ int main(int argc, char *argv[])
     default:
         fprintf(
             stderr,
-            "usage: ./sserver <storage_path> [sserver_port] [nserver_host] [nserver_port]\n");
+            "usage: ./sserver <storage_path> [nserver_host] [nserver_port]\n");
         return 1;
     }
 

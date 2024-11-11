@@ -6,15 +6,13 @@ int sock_send(int sock, Message *message)
     switch (message->op)
     {
     case OP_NS_INIT_CLIENT:
-    case OP_NS_LS:
         message->size = 0;
         break;
     case OP_NS_COPY:
-        message->size = 2 * FILENAME_MAX_LEN;
-        break;
     case OP_NS_INIT_FILE:
     case OP_NS_CREATE:
     case OP_NS_DELETE:
+    case OP_NS_LS:
     case OP_SS_READ:
     case OP_SS_WRITE:
     case OP_SS_INFO:
@@ -74,6 +72,29 @@ Message *sock_get(int sock)
     return new_ret;
 }
 
+void sock_send_ack(int sock, ErrCode *ecode)
+{
+    MessageInt msg;
+    msg.info = *ecode;
+    msg.op = OP_ACK;
+    if (!sock_send(sock, (Message *)&msg))
+    {
+        *ecode = ERR_CONN;
+    }
+}
+
+ErrCode sock_get_ack(int sock)
+{
+    MessageInt *msg = (MessageInt *)sock_get(sock);
+    if (!msg)
+    {
+        return ERR_CONN;
+    }
+    ErrCode ret = (msg->op == OP_ACK) ? msg->info : ERR_SYNC;
+    free(msg);
+    return ret;
+}
+
 void ipv4_print_addr(struct sockaddr_in *addr, const char *interface)
 {
     if (addr && addr->sin_family == AF_INET)
@@ -129,14 +150,11 @@ int _sock_print_info(char *port)
     return 0;
 }
 
+/* Passing port="0" will make this function dynamically choose any available port */
 int sock_init(char *port)
 {
     int status, ret;
     struct addrinfo hints, *res, *i;
-    if (_sock_print_info(port) < 0)
-    {
-        goto error;
-    }
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
@@ -146,7 +164,7 @@ int sock_init(char *port)
     if ((status = getaddrinfo(NULL, port, &hints, &res)))
     {
         fprintf(stderr,
-                "[SELF] Could not connect to server: %s\n",
+                "[SELF] Could not start server: %s\n",
                 gai_strerror(status));
         return -1;
     }
@@ -168,7 +186,22 @@ int sock_init(char *port)
             {
                 goto error;
             }
+            if (strcmp(port, "0") == 0)
+            {
+                /* Get actual port and replace it in 'port' */
+                struct sockaddr_in sin;
+                socklen_t len = sizeof(sin);
+                if (getsockname(ret, (struct sockaddr *)&sin, &len) == -1)
+                {
+                    goto error;
+                }
+                sprintf(port, "%d", ntohs(sin.sin_port));
+            }
         }
+    }
+    if (_sock_print_info(port) < 0)
+    {
+        goto error;
     }
     goto end;
 error:

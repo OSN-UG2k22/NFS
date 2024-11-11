@@ -22,15 +22,76 @@ SServerInfo *sserver_register(struct sockaddr_in *addr, int sock_fd)
     return ret;
 }
 
+ErrCode sserver_by_path(char *path, struct sockaddr_in *addr)
+{
+    int ret = ERR_NONE;
+    if (!path || !path[0])
+    {
+        return ERR_REQ;
+    }
+
+    pthread_mutex_lock(&sservers_lock);
+    /* TODO: actual implementation */
+    if (!sservers[0].is_used)
+    {
+        ret = ERR_SS;
+    }
+    else
+    {
+        *addr = sservers[0].addr;
+    }
+    pthread_mutex_unlock(&sservers_lock);
+    return ret;
+}
+
 void *handle_client(void *client_socket)
 {
     int sock = (int)(intptr_t)client_socket;
     while (1)
     {
-        Message *msg = sock_get(sock);
+        MessageFile *msg = (MessageFile *)sock_get(sock);
         if (!msg)
         {
             break;
+        }
+
+        ErrCode ecode = ERR_NONE;
+        MessageAddr reply_addr;
+        reply_addr.op = OP_NS_REPLY_SS;
+        switch (msg->op)
+        {
+        case OP_NS_CREATE:
+            printf("[CLIENT %d] Created file '%s'\n", sock, msg->file);
+            sock_send_ack(sock, &ecode);
+            break;
+        case OP_NS_DELETE:
+            ecode = sserver_by_path(msg->file, &reply_addr.addr);
+            sock_send_ack(sock, &ecode);
+            printf("[CLIENT %d] Deleted path '%s'\n", sock, msg->file);
+            break;
+        case OP_NS_COPY:
+            /* TODO: Split into two */
+            ecode = sserver_by_path(msg->file, &reply_addr.addr);
+            sock_send_ack(sock, &ecode);
+            printf("[CLIENT %d] Copied paths '%s'\n", sock, msg->file);
+            break;
+        case OP_NS_GET_SS:
+            ecode = sserver_by_path(msg->file, &reply_addr.addr);
+            sock_send_ack(sock, &ecode);
+            if (ecode == ERR_NONE)
+            {
+                sock_send(sock, (Message *)&reply_addr);
+            }
+            printf("[CLIENT %d] Requested SS for path '%s'\n", sock, msg->file);
+            break;
+        case OP_NS_LS:
+            sock_send_ack(sock, &ecode);
+            printf("[CLIENT %d] Listing all files at path '%s'\n", sock, msg->file);
+            break;
+        default:
+            /* Invalid OP at this case */
+            ecode = ERR_REQ;
+            sock_send_ack(sock, &ecode);
         }
         free(msg);
     }

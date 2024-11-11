@@ -25,40 +25,93 @@ int main(int argc, char *argv[])
     {
         printf("List of supported commands:\n");
         printf("- READ [path]\n");
-        printf("- WRITE [path] [local file to read contents from]\n");
+        printf("- WRITE [path]:[local file to read contents from]\n");
         printf("- STREAM [path]\n");
         printf("- INFO [path]\n");
-        printf("- COPY [source path] [destination path]\n");
+        printf("- COPY [source path]:[destination path]\n");
         printf("- LS [path]\n");
-        printf("- LA .\n"); // list all paths available
         printf("- CREATE [path]\n");
         printf("- DELETE [path]\n");
-        // MessageFile NameLater;
         while (1)
         {
             char op[16];
-            if (scanf("%15s", op) != 1)
+            printf("> ");
+            if (scanf("%15s ", op) != 1)
             {
-                return 1;
-            }
-            
-            // printf("Enter the path: ");
-            char *input = (char *)malloc(sizeof(char) * 256);
-            if (scanf("%255s\n", input) != 1)
-            {
-                return 1;
-            }
-            if (strcasecmp(op, "LA") == 0)
-            {
-                
+                break;
             }
 
-            MessageFile path;
-            path.op = OP_NS_GET_SS;
-            strcpy(path.file, input);
-            path.size = strlen(input);
+            MessageFile request;
+            if (!fgets(request.file, sizeof(request.file), stdin))
+            {
+                break;
+            }
+            /* Strip newline */
+            size_t arg_len = strlen(request.file);
+            while (arg_len && request.file[arg_len - 1] == '\n')
+            {
+                arg_len--;
+            }
+            request.file[arg_len] = '\0';
 
-            sock_send(sock_fd, (Message *)&path);
+            if (strcasecmp(op, "COPY") == 0)
+            {
+                request.op = OP_NS_COPY;
+            }
+            else if (strcasecmp(op, "LS") == 0)
+            {
+                request.op = OP_NS_LS;
+            }
+            else if (strcasecmp(op, "CREATE") == 0)
+            {
+                request.op = OP_NS_CREATE;
+            }
+            else if (strcasecmp(op, "DELETE") == 0)
+            {
+                request.op = OP_NS_DELETE;
+            }
+            else
+            {
+                request.op = OP_NS_GET_SS;
+            }
+
+            sock_send(sock_fd, (Message *)&request);
+            ErrCode ret = sock_get_ack(sock_fd);
+            MessageAddr *ss_response = NULL;
+            if (ret == ERR_NONE && request.op == OP_NS_GET_SS)
+            {
+                ss_response = (MessageAddr *)sock_get(sock_fd);
+                if (ss_response)
+                {
+                    if (ss_response->op != OP_NS_REPLY_SS)
+                    {
+                        ret = ERR_SYNC;
+                        free(ss_response);
+                        ss_response = NULL;
+                    }
+                }
+                else
+                {
+                    ret = ERR_CONN;
+                }
+            }
+            if (ret == ERR_NONE)
+            {
+                printf("[SELF] Operation succeeded\n");
+            }
+            else
+            {
+                printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
+            }
+
+            if (ss_response)
+            {
+                printf("[SELF] Received Storage Server address: ");
+                ipv4_print_addr(&ss_response->addr, NULL);
+            }
+
+            /* TODO: integrate below code later */
+#if 0
             MessageAddr *reply = (MessageAddr *)sock_get(sock_fd);
             struct sockaddr_in *ss_addr;
             if (reply->op != OP_NS_REPLY_SS)
@@ -162,7 +215,6 @@ int main(int argc, char *argv[])
                 request.size = strlen(input);
                 sock_send(sock_server, (Message *)&request);
                 stream_music(ip, port);
-                
             }
             if (strcasecmp(op, "INFO") == 0)
             {
@@ -200,35 +252,12 @@ int main(int argc, char *argv[])
                     }
                 }
             }
-            if (strcasecmp(op, "COPY") == 0)
-            {
-                // Format - COPY Destination Source
-                char filepath[256];
-                scanf("%255s\n", filepath);
-                MessageFile2 request;
-                request.op = OP_NS_COPY;
-                strcpy(request.file, input);
-                strcpy(request.file2, filepath);
-                request.size = strlen(input) + strlen(filepath);
-                sock_send(sock_fd, (Message *)&request);
-            }
-            if (strcasecmp(op, "LS") == 0)
-            {
-                
-            }
-            if (strcasecmp(op, "CREATE") == 0)
-            {
 
-            }
-            if (strcasecmp(op, "DELETE") == 0)
-            {
-                
-            }
             else
             {
                 printf("Invalid Operation!\n");
             }
-            
+#endif
         }
     }
 
