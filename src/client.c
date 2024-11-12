@@ -1,5 +1,5 @@
 #include "common.h"
-#define CHUNK_SIZE 1024
+#define CHUNK_SIZE 2*FILENAME_MAX_LEN
 
 int main(int argc, char *argv[])
 {
@@ -42,17 +42,32 @@ int main(int argc, char *argv[])
             }
 
             MessageFile request;
-            if (!fgets(request.file, sizeof(request.file), stdin))
-            {
-                break;
-            }
+            // if (!fgets(request.file, sizeof(request.file), stdin))
+            // {
+            //     break;
+            // }
             /* Strip newline */
-            size_t arg_len = strlen(request.file);
-            while (arg_len && request.file[arg_len - 1] == '\n')
+            // size_t arg_len = strlen(request.file);
+            // while (arg_len && request.file[arg_len - 1] == '\n')
+            // {
+            //     arg_len--;
+            // }
+            // request.file[arg_len] = '\0';
+            if (strcmp(op,"COPY") != 0 && strcmp(op,"WRITE") != 0)
             {
-                arg_len--;
+                if (scanf("%[^\n]", request.file) != 1)
+                {
+                    // error
+                }
             }
-            request.file[arg_len] = '\0';
+            else
+            {
+                if (scanf("%[^:]%[^\n]", request.file,request.file+4096) != 2)
+                {
+                    // error
+                }
+            }
+            // error handling if filename exceeds ?
 
             if (strcasecmp(op, "COPY") == 0)
             {
@@ -76,18 +91,23 @@ int main(int argc, char *argv[])
             }
 
             sock_send(sock_fd, (Message *)&request);
+            if (request.op == OP_NS_LS)
+            {
+                // write logic here
+                continue;
+            }
             ErrCode ret = sock_get_ack(sock_fd);
-            MessageAddr *ss_response = NULL;
+            MessageAddr *ss_addr = NULL;
             if (ret == ERR_NONE && request.op == OP_NS_GET_SS)
             {
-                ss_response = (MessageAddr *)sock_get(sock_fd);
-                if (ss_response)
+                ss_addr = (MessageAddr *)sock_get(sock_fd);
+                if (ss_addr)
                 {
-                    if (ss_response->op != OP_NS_REPLY_SS)
+                    if (ss_addr->op != OP_NS_REPLY_SS)
                     {
                         ret = ERR_SYNC;
-                        free(ss_response);
-                        ss_response = NULL;
+                        free(ss_addr);
+                        ss_addr = NULL;
                     }
                 }
                 else
@@ -102,45 +122,32 @@ int main(int argc, char *argv[])
             else
             {
                 printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
+                continue;
             }
 
-            if (ss_response)
+            if (ss_addr)
             {
                 printf("[SELF] Received Storage Server address: ");
-                ipv4_print_addr(&ss_response->addr, NULL);
+                ipv4_print_addr(&ss_addr->addr, NULL);
             }
 
             /* TODO: integrate below code later */
-#if 0
-            MessageAddr *reply = (MessageAddr *)sock_get(sock_fd);
-            struct sockaddr_in *ss_addr;
-            if (reply->op != OP_NS_REPLY_SS)
-            {
-                // error
-            }
-            ss_addr = (struct sockaddr_in *)&reply->addr;
-            char ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &(ss_addr->sin_addr), ip, INET_ADDRSTRLEN);
-            char port_str[6];
-            sprintf(port_str, "%d", ntohs(ss_addr->sin_port));
-            int sock_server = sock_connect(ip, port_str, NULL);
-            int port = ntohs(ss_addr->sin_port);
-
+// #if 0    
+            char ip[INET_ADDRSTRLEN+1];
+            char port [6];
+            inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+            sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
+            int sock_server = sock_connect(ip,port ,NULL);
             if (strcasecmp(op, "READ") == 0)
             {
-                MessageFile request;
-                request.op = OP_SS_READ;
-                strcpy(request.file, input);
-                request.size = strlen(input);
                 sock_send(sock_server, (Message *)&request);
-
-                Message *size_indic = sock_get(sock_server);
-                if (size_indic->op != OP_RAW)
+                // If need be we can implement acks
+                MessageFile* datasize = (MessageFile*) sock_get(sock_server);
+                if (datasize->op != OP_RAW)
                 {
-                    // size_indic = sock_get(sock_server);
                     // error
                 }
-                int numchunks = size_indic->size / 1024;
+                int numchunks = datasize->size / 2*FILENAME_MAX_LEN;
                 int recv_chunks = 0;
                 MessageFile *read_data;
                 // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
@@ -151,34 +158,22 @@ int main(int argc, char *argv[])
                         // error;
                     }
                     recv_chunks++;
-                    if (size_indic->size > 1024)
+                    if (datasize->size > 2*FILENAME_MAX_LEN)
                     {
-                        size_indic->size -= 1024;
+                        datasize->size -= 2*FILENAME_MAX_LEN;
                         printf("%s", read_data->file);
                     }
                     else
                     {
-                        printf("%.*s", size_indic->size, read_data->file);
+                        printf("%.*s\n", datasize->size, read_data->file);
                     }
                 }
             }
             if (strcasecmp(op, "WRITE") == 0)
             {
-                char filepath[256];
-                if (scanf("%255s\n", filepath) != 1)
-                {
-                    return 1;
-                }
-                FILE *file = fopen(filepath, "r");
-                if (file == NULL)
-                {
-                    // error
-                }
-                MessageFile request;
-                request.op = OP_SS_WRITE;
-                strcpy(request.file, input);
-                request.size = strlen(input);
                 sock_send(sock_server, (Message *)&request);
+                char* filepath;
+                filepath = strdup(request.file+FILENAME_MAX_LEN);
 
                 // If someone else is writing to the file, you cant write so wait till server sends an ACK
                 Message *ack = sock_get(sock_server);
@@ -186,15 +181,16 @@ int main(int argc, char *argv[])
                 {
                     // error
                 }
-                // read from file and send 1024 bytes at a time
+                // read from file and send 2*FILENAME_MAX_LEN bytes at a time
                 // find the size of the file preemptively and send it first
+                FILE *file = fopen(filepath, "rb");
                 fseek(file, 0, SEEK_END);
                 int file_size = ftell(file);
                 rewind(file);
-                MessageFile size_indic;
-                size_indic.op = OP_RAW;
-                size_indic.size = file_size;
-                sock_send(sock_server, (Message *)&size_indic);
+                MessageFile data;
+                data.op = OP_RAW;
+                data.size = file_size;
+                sock_send(sock_server, (Message *)&data);
 
                 char buffer[CHUNK_SIZE];
                 int read_bytes;
@@ -209,28 +205,19 @@ int main(int argc, char *argv[])
             }
             if (strcasecmp(op, "STREAM") == 0)
             {
-                MessageFile request;
-                request.op = OP_SS_STREAM;
-                strcpy(request.file, input);
-                request.size = strlen(input);
                 sock_send(sock_server, (Message *)&request);
                 stream_music(ip, port);
             }
             if (strcasecmp(op, "INFO") == 0)
             {
-                MessageFile request;
-                request.op = OP_SS_INFO;
-                strcpy(request.file, input);
-                request.size = strlen(input);
                 sock_send(sock_server, (Message *)&request);
-
-                Message *size_indic = sock_get(sock_server);
-                if (size_indic->op != OP_RAW)
+                 // If need be we can implement acks
+                MessageFile* datasize = (MessageFile*) sock_get(sock_server);
+                if (datasize->op != OP_RAW)
                 {
-                    // size_indic = sock_get(sock_server);
                     // error
                 }
-                int numchunks = size_indic->size / 1024;
+                int numchunks = datasize->size / 2*FILENAME_MAX_LEN;
                 int recv_chunks = 0;
                 MessageFile *read_data;
                 // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
@@ -241,23 +228,24 @@ int main(int argc, char *argv[])
                         // error;
                     }
                     recv_chunks++;
-                    if (size_indic->size > 1024)
+                    if (datasize->size > 2*FILENAME_MAX_LEN)
                     {
-                        size_indic->size -= 1024;
+                        datasize->size -= 2*FILENAME_MAX_LEN;
                         printf("%s", read_data->file);
                     }
                     else
                     {
-                        printf("%.*s", size_indic->size, read_data->file);
+                        printf("%.*s\n", datasize->size, read_data->file);
                     }
                 }
             }
+
 
             else
             {
                 printf("Invalid Operation!\n");
             }
-#endif
+// #endif
         }
     }
 

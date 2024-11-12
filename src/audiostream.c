@@ -1,6 +1,6 @@
 #include "common.h"
  
-void stream_music(char* ip, int port)
+void stream_music(char* ip, char* port)
 {
     libvlc_instance_t * inst;
     libvlc_media_player_t *mp;
