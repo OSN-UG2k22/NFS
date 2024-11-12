@@ -35,7 +35,24 @@ end:
     return ret;
 }
 
-ErrCode sserver_by_path(char *path, struct sockaddr_in *addr)
+ErrCode sserver_random(int *sock_fd)
+{
+    int ret = ERR_NONE;
+    pthread_mutex_lock(&sservers_lock);
+    /* TODO: actual implementation */
+    if (!sservers[0].is_used)
+    {
+        ret = ERR_SS;
+    }
+    else
+    {
+        *sock_fd = sservers[0].sock_fd;
+    }
+    pthread_mutex_unlock(&sservers_lock);
+    return ret;
+}
+
+ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
 {
     int ret = ERR_NONE;
     if (!path || !path[0])
@@ -51,7 +68,14 @@ ErrCode sserver_by_path(char *path, struct sockaddr_in *addr)
     }
     else
     {
-        *addr = sservers[0].addr;
+        if (addr)
+        {
+            *addr = sservers[0].addr;
+        }
+        if (sock_fd)
+        {
+            *sock_fd = sservers[0].sock_fd;
+        }
     }
     pthread_mutex_unlock(&sservers_lock);
     return ret;
@@ -69,27 +93,65 @@ void *handle_client(void *client_socket)
         }
 
         ErrCode ecode = ERR_NONE;
-        MessageAddr reply_addr;
-        reply_addr.op = OP_NS_REPLY_SS;
+        int sserver_fd;
         switch (msg->op)
         {
         case OP_NS_CREATE:
-            printf("[CLIENT %d] Created file '%s'\n", sock, msg->file);
+            ecode = sserver_random(&sserver_fd);
+            if (ecode == ERR_NONE)
+            {
+                if (sock_send(sserver_fd, (Message *)msg))
+                {
+                    ecode = sock_get_ack(sserver_fd);
+                }
+                else
+                {
+                    ecode = ERR_CONN;
+                }
+            }
+            if (ecode != ERR_NONE)
+            {
+                printf("[CLIENT %d] Failed to create path '%s'\n", sock, msg->file);
+            }
+            else
+            {
+                printf("[CLIENT %d] Created path '%s'\n", sock, msg->file);
+            }
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_DELETE:
-            ecode = sserver_by_path(msg->file, &reply_addr.addr);
+            ecode = sserver_by_path(msg->file, &sserver_fd, NULL);
+            if (ecode == ERR_NONE)
+            {
+                if (sock_send(sserver_fd, (Message *)msg))
+                {
+                    ecode = sock_get_ack(sserver_fd);
+                }
+                else
+                {
+                    ecode = ERR_CONN;
+                }
+            }
+            if (ecode != ERR_NONE)
+            {
+                printf("[CLIENT %d] Failed to delete path '%s'\n", sock, msg->file);
+            }
+            else
+            {
+                printf("[CLIENT %d] Deleted path '%s'\n", sock, msg->file);
+            }
             sock_send_ack(sock, &ecode);
-            printf("[CLIENT %d] Deleted path '%s'\n", sock, msg->file);
             break;
         case OP_NS_COPY:
             /* TODO: Split into two */
-            ecode = sserver_by_path(msg->file, &reply_addr.addr);
+            ecode = ERR_REQ;
             sock_send_ack(sock, &ecode);
             printf("[CLIENT %d] Copied paths '%s'\n", sock, msg->file);
             break;
         case OP_NS_GET_SS:
-            ecode = sserver_by_path(msg->file, &reply_addr.addr);
+            MessageAddr reply_addr;
+            reply_addr.op = OP_NS_REPLY_SS;
+            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr);
             sock_send_ack(sock, &ecode);
             if (ecode == ERR_NONE)
             {
@@ -153,12 +215,13 @@ void *handle_ss(void *sserver_void)
     printf("[STORAGE SERVER %d] Finished exposing all files, now ready to process requests\n", sserver->id);
     while (1)
     {
-        Message *msg = sock_get(sserver->sock_fd);
-        if (!msg)
-        {
-            break;
-        }
-        free(msg);
+        // Message *msg = sock_get(sserver->sock_fd);
+        // if (!msg)
+        // {
+        //     break;
+        // }
+        // free(msg);
+        sleep(1);
     }
 end:
     printf("[STORAGE SERVER %d] Disconnected\n", sserver->id);

@@ -1,5 +1,5 @@
 #include "common.h"
-#define CHUNK_SIZE 2*FILENAME_MAX_LEN
+#define CHUNK_SIZE 2 * FILENAME_MAX_LEN
 
 int main(int argc, char *argv[])
 {
@@ -53,7 +53,8 @@ int main(int argc, char *argv[])
             //     arg_len--;
             // }
             // request.file[arg_len] = '\0';
-            if (strcmp(op,"COPY") != 0 && strcmp(op,"WRITE") != 0)
+            char arg2[FILENAME_MAX_LEN];
+            if (strcmp(op, "WRITE") != 0)
             {
                 if (scanf("%[^\n]", request.file) != 1)
                 {
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                if (scanf("%[^:]%[^\n]", request.file,request.file+4096) != 2)
+                if (scanf("%[^:]%[^\n]", request.file, arg2) != 2)
                 {
                     // error
                 }
@@ -130,31 +131,35 @@ int main(int argc, char *argv[])
                 printf("[SELF] Received Storage Server address: ");
                 ipv4_print_addr(&ss_addr->addr, NULL);
             }
+            else {
+                /* For create/delete/copy, we are done here */
+                continue;
+            }
 
             /* TODO: integrate below code later */
-// #if 0    
-            char ip[INET_ADDRSTRLEN+1];
+            // #if 0
+            char ip[INET_ADDRSTRLEN + 1];
             // char port [6];
             uint16_t port;
             inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
             // sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
             port = ntohs(ss_addr->addr.sin_port);
-            int sock_server = sock_connect(ip,&port ,NULL);
+            int sock_server = sock_connect(ip, &port, NULL);
             // if (sock_server < 0)
             // {
             //     // error
             // }
-            int port = ntohs(ss_addr->addr.sin_port);
+            port = ntohs(ss_addr->addr.sin_port);
             if (strcasecmp(op, "READ") == 0)
             {
                 sock_send(sock_server, (Message *)&request);
                 // If need be we can implement acks
-                MessageFile* datasize = (MessageFile*) sock_get(sock_server);
+                MessageFile *datasize = (MessageFile *)sock_get(sock_server);
                 if (datasize->op != OP_RAW)
                 {
                     // error
                 }
-                int numchunks = datasize->size / 2*FILENAME_MAX_LEN;
+                int numchunks = datasize->size / 2 * FILENAME_MAX_LEN;
                 int recv_chunks = 0;
                 MessageFile *read_data;
                 // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
@@ -165,9 +170,9 @@ int main(int argc, char *argv[])
                         // error;
                     }
                     recv_chunks++;
-                    if (datasize->size > 2*FILENAME_MAX_LEN)
+                    if (datasize->size > 2 * FILENAME_MAX_LEN)
                     {
-                        datasize->size -= 2*FILENAME_MAX_LEN;
+                        datasize->size -= 2 * FILENAME_MAX_LEN;
                         printf("%s", read_data->file);
                     }
                     else
@@ -179,8 +184,8 @@ int main(int argc, char *argv[])
             if (strcasecmp(op, "WRITE") == 0)
             {
                 sock_send(sock_server, (Message *)&request);
-                char* filepath;
-                filepath = strdup(request.file+FILENAME_MAX_LEN);
+                char *filepath;
+                filepath = strdup(request.file + FILENAME_MAX_LEN);
 
                 // If someone else is writing to the file, you cant write so wait till server sends an ACK
                 Message *ack = sock_get(sock_server);
@@ -190,7 +195,7 @@ int main(int argc, char *argv[])
                 }
                 // read from file and send 2*FILENAME_MAX_LEN bytes at a time
                 // find the size of the file preemptively and send it first
-                FILE *file = fopen(filepath, "rb");
+                FILE *file = fopen(filepath, "w");
                 fseek(file, 0, SEEK_END);
                 int file_size = ftell(file);
                 rewind(file);
@@ -204,7 +209,7 @@ int main(int argc, char *argv[])
                 while ((read_bytes = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
                 {
                     MessageFile chunk;
-                    chunk.op = OP_SS_WRITE;
+                    chunk.op = OP_RAW;
                     chunk.size = read_bytes;
                     memcpy(chunk.file, buffer, read_bytes);
                     sock_send(sock_server, (Message *)&chunk);
@@ -218,13 +223,13 @@ int main(int argc, char *argv[])
             if (strcasecmp(op, "INFO") == 0)
             {
                 sock_send(sock_server, (Message *)&request);
-                 // If need be we can implement acks
-                MessageFile* datasize = (MessageFile*) sock_get(sock_server);
+                // If need be we can implement acks
+                MessageFile *datasize = (MessageFile *)sock_get(sock_server);
                 if (datasize->op != OP_RAW)
                 {
                     // error
                 }
-                int numchunks = datasize->size / 2*FILENAME_MAX_LEN;
+                int numchunks = datasize->size / 2 * FILENAME_MAX_LEN;
                 int recv_chunks = 0;
                 MessageFile *read_data;
                 // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
@@ -235,9 +240,9 @@ int main(int argc, char *argv[])
                         // error;
                     }
                     recv_chunks++;
-                    if (datasize->size > 2*FILENAME_MAX_LEN)
+                    if (datasize->size > 2 * FILENAME_MAX_LEN)
                     {
-                        datasize->size -= 2*FILENAME_MAX_LEN;
+                        datasize->size -= 2 * FILENAME_MAX_LEN;
                         printf("%s", read_data->file);
                     }
                     else
@@ -247,12 +252,11 @@ int main(int argc, char *argv[])
                 }
             }
 
-
             else
             {
                 printf("Invalid Operation!\n");
             }
-// #endif
+            // #endif
         }
     }
 

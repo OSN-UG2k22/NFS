@@ -1,6 +1,8 @@
 #include "common.h"
 #define CHUNK_SIZE 2 * FILENAME_MAX_LEN
 
+char *storage_path = NULL;
+
 /* Returns 1 on success, 0 on error */
 int _sserver_send_files(int sock, MessageFile *cur)
 {
@@ -72,6 +74,85 @@ int sserver_send_files(int sock, const char *path)
     return ret;
 }
 
+ErrCode sserver_create(char *input_file_path)
+{
+    char *file_path = path_concat(storage_path, input_file_path);
+    for (char *p = strchr(file_path + 1, '/'); p; p = strchr(p + 1, '/'))
+    {
+        *p = '\0';
+        if (mkdir(file_path, 0755) == -1)
+        {
+            if (errno != EEXIST)
+            {
+                *p = '/';
+                return ERR_SYS;
+            }
+        }
+        *p = '/';
+    }
+    FILE *file = fopen(file_path, "w");
+    if (!file)
+    {
+        return ERR_SYS;
+    }
+
+    free(file_path);
+    fclose(file);
+    return ERR_NONE;
+}
+
+/* Returns 1 on success, 0 on failure */
+int _sserver_delete(char *file_path)
+{
+    struct dirent *entry;
+    DIR *dir = opendir(file_path);
+    if (!dir)
+    {
+        switch (errno)
+        {
+        case ENOTDIR:
+            /* It is a file, delete it */
+            if (unlink(file_path) != 0)
+            {
+                perror("[SELF] unlink failed");
+                return 0;
+            }
+            return 1;
+        default:
+            perror("[SELF] open dir failed");
+            return 0;
+        }
+    }
+
+    int ret = 1;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        {
+            continue;
+        }
+
+        char *concated_path = path_concat(file_path, entry->d_name);
+        ret &= _sserver_delete(concated_path);
+        free(concated_path);
+    }
+    closedir(dir);
+    if (rmdir(file_path) != 0)
+    {
+        perror("[SELF] rmdir failed");
+        ret = 0;
+    }
+    return ret;
+}
+
+ErrCode sserver_delete(char *input_file_path)
+{
+    char *file_path = path_concat(storage_path, input_file_path);
+    ErrCode ret = _sserver_delete(file_path) ? ERR_NONE : ERR_SYS;
+    free(file_path);
+    return ret;
+}
+
 void sendfile(int sock, const char *path)
 {
     FILE *file = fopen(path, "rb");
@@ -103,9 +184,103 @@ void sendfile(int sock, const char *path)
     fclose(file);
 }
 
+void writefile(int sock, const char *path, int numchunks)
+{
+    // We come here after checking if the file is availabe to write
+    FILE *file = fopen(path, "w");
+    MessageFile *fdata;
+    int recv_chunks = 0;
+    int num_bytes;
+    while (recv_chunks < numchunks && (fdata = (MessageFile *)sock_get(sock)) != 0)
+    {
+        recv_chunks++;
+        fwrite(fdata->file, sizeof(char), fdata->size, file);
+    }
+}
+
+void *handle_client(void *fd_ptr)
+{
+    int sock_fd = (int)(intptr_t)fd_ptr;
+    printf("[CLIENT %d] Connected to handle requests now\n", sock_fd);
+    while (1)
+    {
+        MessageFile *msg = (MessageFile *)sock_get(sock_fd);
+        if (!msg)
+        {
+            break;
+        }
+
+        ErrCode ecode = ERR_NONE;
+        switch (msg->op)
+        {
+        default:
+            /* Invalid OP at this case */
+            ecode = ERR_REQ;
+            sock_send_ack(sock_fd, &ecode);
+        }
+        free(msg);
+    }
+
+    printf("[CLIENT %d] Disconnected\n", sock_fd);
+    close(sock_fd);
+    return NULL;
+}
+
+void *handle_ns(void *ns_fd_ptr)
+{
+    int ns_fd = (int)(intptr_t)ns_fd_ptr;
+    printf("[NAMING SERVER] Connected to handle requests now\n");
+    while (1)
+    {
+        MessageFile *msg = (MessageFile *)sock_get(ns_fd);
+        if (!msg)
+        {
+            break;
+        }
+
+        ErrCode ecode = ERR_NONE;
+        int sserver_fd;
+        switch (msg->op)
+        {
+        case OP_NS_CREATE:
+            ecode = sserver_create(msg->file);
+            sock_send_ack(ns_fd, &ecode);
+            if (ecode == ERR_NONE)
+            {
+                printf("[SELF] Created path '%s'\n", msg->file);
+            }
+            else
+            {
+                printf("[SELF] Failed to create path '%s'\n", msg->file);
+            }
+            break;
+        case OP_NS_DELETE:
+            ecode = sserver_delete(msg->file);
+            sock_send_ack(ns_fd, &ecode);
+            if (ecode == ERR_NONE)
+            {
+                printf("[SELF] Deleted path '%s'\n", msg->file);
+            }
+            else
+            {
+                printf("[SELF] Failed to delete path '%s'\n", msg->file);
+            }
+            break;
+        default:
+            /* Invalid OP at this case */
+            ecode = ERR_REQ;
+            sock_send_ack(ns_fd, &ecode);
+        }
+        free(msg);
+    }
+
+    printf("[NAMING SERVER] Disconnected\n");
+    close(ns_fd);
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
-    char *storage_path = NULL;
     char *nserver_host = DEFAULT_HOST;
     uint16_t nserver_port = NS_DEFAULT_PORT;
     PortAndID pd;
@@ -176,14 +351,29 @@ int main(int argc, char *argv[])
         goto end;
     }
 
+    pthread_t ns_thread_id;
+    if (pthread_create(&ns_thread_id, NULL, handle_ns, (void *)(intptr_t)nserver_fd) != 0)
+    {
+        perror("[SELF] Thread creation failed");
+        goto end;
+    }
+
     while (1)
     {
         struct sockaddr_in sock_addr;
         int conn_fd = sock_accept(sserver_fd, &sock_addr, NULL);
         if (conn_fd < 0)
         {
-            break;
+            continue;
         }
+        pthread_t thread_id;
+        if (pthread_create(&thread_id, NULL, handle_client, (void *)(intptr_t)conn_fd) != 0)
+        {
+            perror("[SELF] Thread creation failed");
+            continue;
+        }
+
+        pthread_detach(thread_id);
     }
 
 end:

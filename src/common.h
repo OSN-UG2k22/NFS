@@ -55,6 +55,7 @@ typedef enum _ErrCode
     ERR_REQ,  /* Invalid request */
     ERR_SS,   /* Could not find SS to complete request */
     ERR_SYNC, /* Synchronisation issue, invalid type of message recieved */
+    ERR_SYS,  /* Some system error when processing the request */
 } ErrCode;
 
 static inline char *errcode_to_str(ErrCode ecode)
@@ -71,6 +72,8 @@ static inline char *errcode_to_str(ErrCode ecode)
         return "Could not fetch storage server";
     case ERR_SYNC:
         return "Synchronization issue, unexpected type of message recieved";
+    case ERR_SYS:
+        return "Some system error on storage server";
     }
     return "Invalid error code";
 }

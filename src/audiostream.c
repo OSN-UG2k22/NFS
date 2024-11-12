@@ -6,8 +6,8 @@ void stream_music(char* ip, int port)
     libvlc_media_player_t *mp;
     libvlc_media_t *m;
 
-    int running = 1;
-    const char* ip = ip;
+    // int running = 1;
+    // const char* ip = ip;
     int porta = port;
     char media_url[256];
     snprintf(media_url, sizeof(media_url), "tcp://%s:%d", ip, porta);
@@ -56,6 +56,4 @@ void stream_music(char* ip, int port)
     libvlc_media_player_release (mp);
  
     libvlc_release (inst);
- 
-    return 0;
 }
