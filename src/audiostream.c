@@ -1,6 +1,6 @@
 #include "common.h"
  
-void stream_music(char* ip, char* port)
+void stream_music(char* ip, int port)
 {
     libvlc_instance_t * inst;
     libvlc_media_player_t *mp;
@@ -8,9 +8,9 @@ void stream_music(char* ip, char* port)
 
     int running = 1;
     const char* ip = ip;
-    int port = port;
+    int porta = port;
     char media_url[256];
-    snprintf(media_url, sizeof(media_url), "tcp://%s:%d", ip, port);
+    snprintf(media_url, sizeof(media_url), "tcp://%s:%d", ip, porta);
 
     const char *args[] = {
         "--verbose=2",

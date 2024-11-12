@@ -128,7 +128,7 @@ Message *sock_get(int sock);
 void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
-void stream_music(char *ip, char* port);
+void stream_music(char *ip, int port);
 
 /* Path utils */
 

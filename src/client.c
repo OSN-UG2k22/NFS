@@ -134,10 +134,17 @@ int main(int argc, char *argv[])
             /* TODO: integrate below code later */
 // #if 0    
             char ip[INET_ADDRSTRLEN+1];
-            char port [6];
+            // char port [6];
+            uint16_t port;
             inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
-            sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
-            int sock_server = sock_connect(ip,port ,NULL);
+            // sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
+            port = ntohs(ss_addr->addr.sin_port);
+            int sock_server = sock_connect(ip,&port ,NULL);
+            // if (sock_server < 0)
+            // {
+            //     // error
+            // }
+            int port = ntohs(ss_addr->addr.sin_port);
             if (strcasecmp(op, "READ") == 0)
             {
                 sock_send(sock_server, (Message *)&request);

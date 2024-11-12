@@ -1,4 +1,5 @@
 #include "common.h"
+#define CHUNK_SIZE 2 * FILENAME_MAX_LEN
 
 /* Returns 1 on success, 0 on error */
 int _sserver_send_files(int sock, MessageFile *cur)
@@ -69,6 +70,37 @@ int sserver_send_files(int sock, const char *path)
         printf("[SELF] Failed while exposing files to naming server\n");
     }
     return ret;
+}
+
+void sendfile(int sock, const char *path)
+{
+    FILE *file = fopen(path, "rb");
+    if (!file)
+    {
+        perror("[SELF] Could not open file");
+        return;
+    }
+
+    fseek(file, 0, SEEK_END);
+    int file_size = ftell(file);
+    rewind(file);
+
+    MessageFile data;
+    data.op = OP_RAW;
+    data.size = file_size;
+    sock_send(sock, (Message *)&data);
+
+    char buffer[CHUNK_SIZE];
+    int read_bytes;
+    while ((read_bytes = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
+    {
+        MessageFile chunk;
+        chunk.op = OP_SS_WRITE;
+        chunk.size = read_bytes;
+        memcpy(chunk.file, buffer, read_bytes);
+        sock_send(sock, (Message *)&chunk);
+    }
+    fclose(file);
 }
 
 int main(int argc, char *argv[])
