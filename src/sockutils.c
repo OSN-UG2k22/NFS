@@ -285,13 +285,16 @@ int sock_accept(
     int sock_fd, struct sockaddr_in *sock_addr, PortAndID *ss_pd)
 {
     socklen_t addrlen = sizeof(struct sockaddr_in);
+    printf("sockutils debug\n");
     int ret = accept(sock_fd, (struct sockaddr *)sock_addr, &addrlen);
+    printf("sockutils debug1\n");
     if (ret < 0)
     {
         perror("[SELF] Accept failed");
         return -1;
     }
     Message *init_msg = sock_get(ret);
+    printf("sockutils debug2\n");
     if (!init_msg)
     {
         close(ret);

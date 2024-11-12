@@ -133,25 +133,33 @@ int main(int argc, char *argv[])
             }
             else {
                 /* For create/delete/copy, we are done here */
+                printf("debug3\n");
                 continue;
             }
 
             /* TODO: integrate below code later */
             // #if 0
-            char ip[INET_ADDRSTRLEN + 1];
-            // char port [6];
-            uint16_t port;
-            inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
-            // sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
-            port = ntohs(ss_addr->addr.sin_port);
-            int sock_server = sock_connect(ip, &port, NULL);
+            // char ip[INET_ADDRSTRLEN + 1];
+            // // char port [6];
+            // uint16_t port;
+            // inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+            // // sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
+            // port = ntohs(ss_addr->addr.sin_port);
+            // int sock_server = sock_connect(ip, &port, NULL);
             // if (sock_server < 0)
             // {
             //     // error
             // }
-            port = ntohs(ss_addr->addr.sin_port);
+            // port = ntohs(ss_addr->addr.sin_port);
             if (strcasecmp(op, "READ") == 0)
             {
+                printf("debug4\n");
+                char ip[INET_ADDRSTRLEN + 1];
+                uint16_t port;
+                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+                port = ntohs(ss_addr->addr.sin_port);
+                int sock_server = sock_connect(ip, &port, NULL);
+
                 sock_send(sock_server, (Message *)&request);
                 // If need be we can implement acks
                 MessageFile *datasize = (MessageFile *)sock_get(sock_server);
@@ -159,11 +167,12 @@ int main(int argc, char *argv[])
                 {
                     // error
                 }
-                int numchunks = datasize->size / 2 * FILENAME_MAX_LEN;
+                int numchunks = datasize->size / (2 * FILENAME_MAX_LEN);
                 int recv_chunks = 0;
                 MessageFile *read_data;
+                printf("debug1\n");
                 // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
-                while (recv_chunks < numchunks && strcmp((read_data = (MessageFile *)sock_get(sock_server))->file, "STOP") != 0)
+                while (recv_chunks <= numchunks && strcmp((read_data = (MessageFile *)sock_get(sock_server))->file, "STOP") != 0)
                 {
                     if (read_data->op != OP_SS_READ)
                     {
@@ -172,6 +181,7 @@ int main(int argc, char *argv[])
                     recv_chunks++;
                     if (datasize->size > 2 * FILENAME_MAX_LEN)
                     {
+                        printf("debug2\n");
                         datasize->size -= 2 * FILENAME_MAX_LEN;
                         printf("%s", read_data->file);
                     }
@@ -180,9 +190,16 @@ int main(int argc, char *argv[])
                         printf("%.*s\n", datasize->size, read_data->file);
                     }
                 }
+                close(sock_server);
             }
             if (strcasecmp(op, "WRITE") == 0)
             {
+                char ip[INET_ADDRSTRLEN + 1];
+                uint16_t port;
+                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+                port = ntohs(ss_addr->addr.sin_port);
+                int sock_server = sock_connect(ip, &port, NULL);
+
                 sock_send(sock_server, (Message *)&request);
                 char *filepath;
                 filepath = strdup(request.file + FILENAME_MAX_LEN);
@@ -214,14 +231,29 @@ int main(int argc, char *argv[])
                     memcpy(chunk.file, buffer, read_bytes);
                     sock_send(sock_server, (Message *)&chunk);
                 }
+                fclose(file);
+                close(sock_server);
             }
             if (strcasecmp(op, "STREAM") == 0)
             {
+                char ip[INET_ADDRSTRLEN + 1];
+                uint16_t port;
+                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+                port = ntohs(ss_addr->addr.sin_port);
+                int sock_server = sock_connect(ip, &port, NULL);
+
                 sock_send(sock_server, (Message *)&request);
                 stream_music(ip, port);
+                close(sock_server);
             }
             if (strcasecmp(op, "INFO") == 0)
             {
+                char ip[INET_ADDRSTRLEN + 1];
+                uint16_t port;
+                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+                port = ntohs(ss_addr->addr.sin_port);
+                int sock_server = sock_connect(ip, &port, NULL);
+
                 sock_send(sock_server, (Message *)&request);
                 // If need be we can implement acks
                 MessageFile *datasize = (MessageFile *)sock_get(sock_server);
@@ -229,11 +261,11 @@ int main(int argc, char *argv[])
                 {
                     // error
                 }
-                int numchunks = datasize->size / 2 * FILENAME_MAX_LEN;
+                int numchunks = datasize->size / (2 * FILENAME_MAX_LEN);
                 int recv_chunks = 0;
                 MessageFile *read_data;
                 // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
-                while (recv_chunks < numchunks && strcmp((read_data = (MessageFile *)sock_get(sock_server))->file, "STOP") != 0)
+                while (recv_chunks <= numchunks && strcmp((read_data = (MessageFile *)sock_get(sock_server))->file, "STOP") != 0)
                 {
                     if (read_data->op != OP_SS_INFO)
                     {
@@ -250,6 +282,7 @@ int main(int argc, char *argv[])
                         printf("%.*s\n", datasize->size, read_data->file);
                     }
                 }
+                close(sock_server);
             }
 
             else

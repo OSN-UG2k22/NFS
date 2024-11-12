@@ -170,13 +170,14 @@ void sendfile(int sock, const char *path)
     data.op = OP_RAW;
     data.size = file_size;
     sock_send(sock, (Message *)&data);
+    printf("holalal");
 
     char buffer[CHUNK_SIZE];
     int read_bytes;
     while ((read_bytes = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
     {
         MessageFile chunk;
-        chunk.op = OP_SS_WRITE;
+        chunk.op = OP_RAW;
         chunk.size = read_bytes;
         memcpy(chunk.file, buffer, read_bytes);
         sock_send(sock, (Message *)&chunk);
@@ -191,7 +192,7 @@ void writefile(int sock, const char *path, int numchunks)
     MessageFile *fdata;
     int recv_chunks = 0;
     int num_bytes;
-    while (recv_chunks < numchunks && (fdata = (MessageFile *)sock_get(sock)) != 0)
+    while (recv_chunks <= numchunks && (fdata = (MessageFile *)sock_get(sock)) != 0)
     {
         recv_chunks++;
         fwrite(fdata->file, sizeof(char), fdata->size, file);
@@ -201,10 +202,12 @@ void writefile(int sock, const char *path, int numchunks)
 void *handle_client(void *fd_ptr)
 {
     int sock_fd = (int)(intptr_t)fd_ptr;
+    printf("sserver debug2\n");
     printf("[CLIENT %d] Connected to handle requests now\n", sock_fd);
     while (1)
-    {
+    {printf("sserver debug3\n");
         MessageFile *msg = (MessageFile *)sock_get(sock_fd);
+        printf("sserver debug4\n");
         if (!msg)
         {
             break;
@@ -213,6 +216,11 @@ void *handle_client(void *fd_ptr)
         ErrCode ecode = ERR_NONE;
         switch (msg->op)
         {
+            case OP_SS_READ:
+            {
+                printf("[SELF] Reading file '%s'\n", msg->file);
+                sendfile(sock_fd, msg->file);
+            }
         default:
             /* Invalid OP at this case */
             ecode = ERR_REQ;
@@ -359,9 +367,10 @@ int main(int argc, char *argv[])
     }
 
     while (1)
-    {
+    {printf("sserver debug\n");
         struct sockaddr_in sock_addr;
         int conn_fd = sock_accept(sserver_fd, &sock_addr, NULL);
+        printf("sserver debug1\n");
         if (conn_fd < 0)
         {
             continue;
