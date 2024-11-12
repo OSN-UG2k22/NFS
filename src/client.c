@@ -4,13 +4,13 @@
 int main(int argc, char *argv[])
 {
     char *nserver_host = DEFAULT_HOST;
-    char *nserver_port = NS_DEFAULT_PORT;
+    uint16_t nserver_port = NS_DEFAULT_PORT;
     switch (argc)
     {
     case 1:
         break;
     case 3:
-        nserver_port = argv[2];
+        nserver_port = (uint16_t)atoi(argv[2]);
         /* Fall through */
     case 2:
         nserver_host = argv[1];
@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    int sock_fd = sock_connect(nserver_host, nserver_port, NULL);
+    int sock_fd = sock_connect(nserver_host, &nserver_port, NULL);
     if (sock_fd >= 0)
     {
         printf("List of supported commands:\n");

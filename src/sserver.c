@@ -75,12 +75,14 @@ int main(int argc, char *argv[])
 {
     char *storage_path = NULL;
     char *nserver_host = DEFAULT_HOST;
-    char *nserver_port = NS_DEFAULT_PORT;
-    char sserver_port[6] = "0";
+    uint16_t nserver_port = NS_DEFAULT_PORT;
+    PortAndID pd;
+    pd.port = 0;
+    pd.id = -1;
     switch (argc)
     {
     case 4:
-        nserver_port = argv[3];
+        nserver_port = (uint16_t)atoi(argv[3]);
         /* Fall through */
     case 3:
         nserver_host = argv[2];
@@ -95,19 +97,48 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    int sserver_fd = sock_init(sserver_port);
+    int sserver_fd = sock_init(&pd.port);
     if (sserver_fd < 0)
     {
         return 1;
     }
+    char *metadata_file = path_concat(storage_path, SS_METADATA);
+    if (metadata_file)
+    {
+        /* Open a file for a single read, and create it if it does not exist */
+        FILE *f = fopen(metadata_file, "a+");
+        if (!f)
+        {
+            perror("[SELF] Could not access storage path");
+            free(metadata_file);
+            goto end;
+        }
+        fseek(f, 0, SEEK_SET);
+        fscanf(f, "%hd", &pd.id);
+        fclose(f);
+    }
 
-    printf("[SELF] Started storage server on %s\n", storage_path);
-    int nserver_fd = sock_connect(nserver_host, nserver_port, sserver_port);
+    int nserver_fd = sock_connect(nserver_host, &nserver_port, &pd);
     if (nserver_fd < 0)
     {
+        free(metadata_file);
         goto end;
     }
 
+    if (metadata_file)
+    {
+        FILE *f = fopen(metadata_file, "w");
+        free(metadata_file);
+        if (!f)
+        {
+            perror("[SELF] Could not access storage path");
+            goto end;
+        }
+        fprintf(f, "%hd\n", pd.id);
+        fclose(f);
+    }
+
+    printf("[SELF] Started storage server with id %hd on %s\n", pd.id, storage_path);
     if (!sserver_send_files(nserver_fd, storage_path))
     {
         goto end;
@@ -115,8 +146,8 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        struct sockaddr_in sock_addr, ss_sock_addr = {0};
-        int conn_fd = sock_accept(sserver_fd, &sock_addr, &ss_sock_addr);
+        struct sockaddr_in sock_addr;
+        int conn_fd = sock_accept(sserver_fd, &sock_addr, NULL);
         if (conn_fd < 0)
         {
             break;

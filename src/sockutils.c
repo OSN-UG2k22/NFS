@@ -126,7 +126,7 @@ int ipv4_is_wildcard(struct sockaddr *addr)
     return 0;
 }
 
-int _sock_print_info(char *port)
+int _sock_print_info(uint16_t port)
 {
     struct ifaddrs *ifaddr, *ifa;
     if (getifaddrs(&ifaddr) == -1)
@@ -135,7 +135,7 @@ int _sock_print_info(char *port)
         return -1;
     }
 
-    printf("[SELF] Server listening in wildcard IPv4 address on port %s\n", port);
+    printf("[SELF] Server listening in wildcard IPv4 address on port %hu\n", port);
     printf("[SELF] Here are some possible addresses clients can use:\n");
     for (ifa = ifaddr; ifa; ifa = ifa->ifa_next)
     {
@@ -151,7 +151,7 @@ int _sock_print_info(char *port)
 }
 
 /* Passing port="0" will make this function dynamically choose any available port */
-int sock_init(char *port)
+int sock_init(uint16_t *port)
 {
     int status, ret;
     struct addrinfo hints, *res, *i;
@@ -161,7 +161,9 @@ int sock_init(char *port)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
 
-    if ((status = getaddrinfo(NULL, port, &hints, &res)))
+    char port_str[6];
+    snprintf(port_str, sizeof(port_str), "%hu", *port);
+    if ((status = getaddrinfo(NULL, port_str, &hints, &res)))
     {
         fprintf(stderr,
                 "[SELF] Could not start server: %s\n",
@@ -186,7 +188,7 @@ int sock_init(char *port)
             {
                 goto error;
             }
-            if (strcmp(port, "0") == 0)
+            if (!(*port))
             {
                 /* Get actual port and replace it in 'port' */
                 struct sockaddr_in sin;
@@ -195,11 +197,11 @@ int sock_init(char *port)
                 {
                     goto error;
                 }
-                sprintf(port, "%d", ntohs(sin.sin_port));
+                *port = ntohs(sin.sin_port);
             }
         }
     }
-    if (_sock_print_info(port) < 0)
+    if (_sock_print_info(*port) < 0)
     {
         goto error;
     }
@@ -212,12 +214,14 @@ end:
     return ret;
 }
 
-int sock_connect(char *node, char *port, char *listen_port)
+int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd)
 {
     struct addrinfo *res, *i;
     int status;
     int sock_fd = -1;
-    if ((status = getaddrinfo(node, port, NULL, &res)))
+    char port_str[6];
+    snprintf(port_str, sizeof(port_str), "%hu", *port);
+    if ((status = getaddrinfo(node, port_str, NULL, &res)))
     {
         fprintf(stderr,
                 "[SELF] Could not connect to server: %s\n",
@@ -247,12 +251,25 @@ int sock_connect(char *node, char *port, char *listen_port)
         return -1;
     }
 
-    if (listen_port)
+    if (ss_pd)
     {
         MessageInt msg;
-        msg.info = atoi(listen_port);
+        msg.info = *(int *)ss_pd;
         msg.op = OP_NS_INIT_SS;
         sock_send(sock_fd, (Message *)&msg);
+        MessageInt *resp = (MessageInt *)sock_get(sock_fd);
+        if (!resp || resp->op != OP_ACK)
+        {
+            free(resp);
+            close(sock_fd);
+            fprintf(stderr, "[SELF] Could not connect to server\n");
+            sock_fd = -1;
+        }
+        else
+        {
+            ss_pd->id = (int16_t)resp->info;
+        }
+        free(resp);
     }
     else
     {
@@ -265,7 +282,7 @@ int sock_connect(char *node, char *port, char *listen_port)
 }
 
 int sock_accept(
-    int sock_fd, struct sockaddr_in *sock_addr, struct sockaddr_in *ss_sock_addr)
+    int sock_fd, struct sockaddr_in *sock_addr, PortAndID *ss_pd)
 {
     socklen_t addrlen = sizeof(struct sockaddr_in);
     int ret = accept(sock_fd, (struct sockaddr *)sock_addr, &addrlen);
@@ -283,14 +300,11 @@ int sock_accept(
     switch (init_msg->op)
     {
     case OP_NS_INIT_SS:
-        printf("[STORAGE SERVER %d] Connected storage server on: ", ret);
-        ipv4_print_addr(sock_addr, NULL);
-
-        printf("[STORAGE SERVER %d] This is listening on: ", ret);
-        *ss_sock_addr = *sock_addr;
-        ss_sock_addr->sin_port = htons(((MessageInt *)init_msg)->info);
-        ipv4_print_addr(ss_sock_addr, NULL);
-
+        if (ss_pd)
+        {
+            PortAndID *pd = (PortAndID *)&(((MessageInt *)init_msg)->info);
+            *ss_pd = *pd;
+        }
         break;
     case OP_NS_INIT_CLIENT:
         printf("[CLIENT %d] Connected client on: ", ret);

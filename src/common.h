@@ -25,7 +25,7 @@
 #define NS_MAX_CONN 1024
 
 #define DEFAULT_HOST "127.0.0.1"
-#define NS_DEFAULT_PORT "4269"
+#define NS_DEFAULT_PORT 4269
 
 /* Any message sent over the network must have one of these values in the
  * header */
@@ -95,6 +95,13 @@ typedef struct _MessageInt
     int info;
 } MessageInt;
 
+/* Must be 4 bytes to fit int */
+typedef struct _PortAndID
+{
+    uint16_t port;
+    int16_t id;
+} PortAndID;
+
 typedef struct _MessageAddr
 {
     Operation op;
@@ -107,19 +114,28 @@ typedef struct _SServerInfo
     struct sockaddr_in addr;
     int sock_fd;
     int is_used;
+    int16_t id;
+    uint16_t _port;
 } SServerInfo;
 
 void ipv4_print_addr(struct sockaddr_in *addr, const char *interface);
 
-int sock_connect(char *node, char *port, char *listen_port);
-int sock_init(char *port);
-int sock_accept(
-    int sock_fd, struct sockaddr_in *sock_addr, struct sockaddr_in *ss_sock_addr);
+int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd);
+int sock_init(uint16_t *port);
+int sock_accept(int sock_fd, struct sockaddr_in *sock_addr, PortAndID *ss_pd);
 int sock_send(int sock, Message *message);
 Message *sock_get(int sock);
 void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
 void stream_music(char *ip, int port);
+
+/* Path utils */
+
+#define SS_METADATA ".ss_metadata_hidden"
+#define NS_METADATA ".ns_metadata_hidden"
+
+char *path_remove_prefix(char *self, char *op);
+char *path_concat(char *first, char *second);
 
 #endif

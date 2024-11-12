@@ -2,22 +2,35 @@
 
 pthread_mutex_t sservers_lock = PTHREAD_MUTEX_INITIALIZER;
 SServerInfo sservers[NS_MAX_CONN] = {0};
+int16_t sservers_count = 0;
 
-SServerInfo *sserver_register(struct sockaddr_in *addr, int sock_fd)
+char *nserver_meta_path = NULL;
+
+SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_fd)
 {
     SServerInfo *ret = NULL;
     pthread_mutex_lock(&sservers_lock);
-    for (int i = 0; i < NS_MAX_CONN; i++)
+    if (pd->id < 0)
     {
-        if (!sservers[i].is_used)
+        pd->id = sservers_count++;
+        FILE *meta = fopen(NS_METADATA, "w");
+        if (!meta)
         {
-            sservers[i].addr = *addr;
-            sservers[i].sock_fd = sock_fd;
-            sservers[i].is_used = 1;
-            ret = &sservers[i];
-            break;
+            goto end;
         }
+        fprintf(meta, "%hd\n", sservers_count);
+        fclose(meta);
     }
+    if (pd->id < NS_MAX_CONN)
+    {
+        ret = &sservers[pd->id];
+        ret->addr = *addr;
+        ret->sock_fd = sock_fd;
+        ret->is_used = 1;
+        ret->id = pd->id;
+        ret->_port = pd->port;
+    }
+end:
     pthread_mutex_unlock(&sservers_lock);
     return ret;
 }
@@ -104,19 +117,40 @@ void *handle_client(void *client_socket)
 void *handle_ss(void *sserver_void)
 {
     SServerInfo *sserver = (SServerInfo *)sserver_void;
+
+    printf("[STORAGE SERVER %d] Connected storage server on: ", sserver->id);
+    ipv4_print_addr(&sserver->addr, NULL);
+    sserver->addr.sin_port = sserver->_port;
+    printf("[STORAGE SERVER %d] This is listening on: ", sserver->id);
+    ipv4_print_addr(&sserver->addr, NULL);
+
+    /* Send ID */
+    MessageInt msg_id;
+    msg_id.op = OP_ACK;
+    msg_id.info = sserver->id;
+    if (!sock_send(sserver->sock_fd, (Message *)&msg_id))
+    {
+        goto end;
+    }
+
     /* Get available paths */
     while (1)
     {
         MessageFile *msg = (MessageFile *)sock_get(sserver->sock_fd);
+        if (!msg)
+        {
+            goto end;
+        }
+
         if (msg->op != OP_NS_INIT_FILE || !(msg->file[0]))
         {
             free(msg);
             break;
         }
-        printf("[STORAGE SERVER %d] Has file '%s'\n", sserver->sock_fd, msg->file);
+        printf("[STORAGE SERVER %d] Has file '%s'\n", sserver->id, msg->file);
         free(msg);
     }
-    printf("[STORAGE SERVER %d] Finished exposing all files, now ready to process requests\n", sserver->sock_fd);
+    printf("[STORAGE SERVER %d] Finished exposing all files, now ready to process requests\n", sserver->id);
     while (1)
     {
         Message *msg = sock_get(sserver->sock_fd);
@@ -126,7 +160,8 @@ void *handle_ss(void *sserver_void)
         }
         free(msg);
     }
-    printf("[STORAGE SERVER %d] Disconnected\n", sserver->sock_fd);
+end:
+    printf("[STORAGE SERVER %d] Disconnected\n", sserver->id);
     pthread_mutex_lock(&sservers_lock);
     close(sserver->sock_fd);
     sserver->is_used = 0;
@@ -136,10 +171,10 @@ void *handle_ss(void *sserver_void)
 
 int main(int argc, char *argv[])
 {
-    char *port = NS_DEFAULT_PORT;
+    uint16_t port = NS_DEFAULT_PORT;
     if (argc == 2)
     {
-        port = argv[1];
+        port = (uint16_t)atoi(argv[1]);
     }
     else if (argc > 2)
     {
@@ -147,21 +182,29 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    int server_fd = sock_init(port);
+    FILE *meta = fopen(NS_METADATA, "r");
+    if (meta)
+    {
+        fscanf(meta, "%hd", &sservers_count);
+        fclose(meta);
+    }
+
+    int server_fd = sock_init(&port);
     if (server_fd >= 0)
     {
         while (1)
         {
-            struct sockaddr_in sock_addr, ss_sock_addr = {0};
-            int conn_fd = sock_accept(server_fd, &sock_addr, &ss_sock_addr);
+            struct sockaddr_in sock_addr;
+            PortAndID pd = {0};
+            int conn_fd = sock_accept(server_fd, &sock_addr, &pd);
             if (conn_fd < 0)
             {
                 continue;
             }
             pthread_t thread_id;
-            if (ss_sock_addr.sin_port)
+            if (pd.port)
             {
-                SServerInfo *sserver = sserver_register(&sock_addr, conn_fd);
+                SServerInfo *sserver = sserver_register(&pd, &sock_addr, conn_fd);
                 if (!sserver)
                 {
                     close(conn_fd);

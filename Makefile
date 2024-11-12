@@ -8,13 +8,13 @@ rel: client nserver sserver
 dev: CFLAGS=-Wall -Wextra -Werror -g -fsanitize=address,undefined -fno-omit-frame-pointer
 dev: client nserver sserver
 
-client: src/client.c src/sockutils.c
+client: src/client.c src/sockutils.c src/pathutils.c
 	$(CC) $(CFLAGS) $^ -o $@
 
-nserver: src/nserver.c src/sockutils.c
+nserver: src/nserver.c src/sockutils.c src/pathutils.c
 	$(CC) $(CFLAGS) $^ -o $@
 
-sserver: src/sserver.c src/sockutils.c
+sserver: src/sserver.c src/sockutils.c src/pathutils.c
 	$(CC) $(CFLAGS) $^ -o $@
 
 # clean command
