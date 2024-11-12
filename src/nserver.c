@@ -182,7 +182,7 @@ void *handle_ss(void *sserver_void)
 
     printf("[STORAGE SERVER %d] Connected storage server on: ", sserver->id);
     ipv4_print_addr(&sserver->addr, NULL);
-    sserver->addr.sin_port = sserver->_port;
+    sserver->addr.sin_port = htons(sserver->_port);
     printf("[STORAGE SERVER %d] This is listening on: ", sserver->id);
     ipv4_print_addr(&sserver->addr, NULL);
 

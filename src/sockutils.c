@@ -221,7 +221,12 @@ int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd)
     int sock_fd = -1;
     char port_str[6];
     snprintf(port_str, sizeof(port_str), "%hu", *port);
-    if ((status = getaddrinfo(node, port_str, NULL, &res)))
+
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    if ((status = getaddrinfo(node, port_str, &hints, &res)))
     {
         fprintf(stderr,
                 "[SELF] Could not connect to server: %s\n",
@@ -247,7 +252,7 @@ int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd)
     freeaddrinfo(res);
     if (sock_fd == -1)
     {
-        fprintf(stderr, "[SELF] Could not connect to server\n");
+        perror("[SELF] Could not connect to server");
         return -1;
     }
 
