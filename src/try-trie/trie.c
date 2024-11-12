@@ -1,25 +1,16 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-/*
-initialize trie
-insert into trie
-find in trie    // return hashind if found else -1 if not found
-delete from trie
-*/
-
-typedef struct trienode
-{
-    bool lastnode;
-    int hashind;
-    struct trienode *child[256];
-} trienode;
+#include "trie.h"
 
 trienode *newnode()
 {
+    // printf("DEBUG MESSAGE : AA GYA YHN M\n");
     trienode *node = (trienode *)malloc(sizeof(trienode));
+    // printf("DEBUG MESSAGE : YHN NHI AAYA M\n");
     node->lastnode = false;
+    if (pthread_mutex_init(&node->lock, NULL) != 0)
+    {
+        printf("\n mutex init has failed\n");
+        return NULL;
+    }
     node->hashind = -1;
     for (int i = 0; i < 256; i++)
     {
@@ -30,7 +21,7 @@ trienode *newnode()
 
 int trieinsert(trienode *temp, char *str, int hashind)
 {
-    for (int i = 0; i < strlen(str); i++)
+    for (int i = 0; i < (int)strlen(str); i++)
     {
         if (temp->child[(unsigned char)str[i]] == NULL)
         {
@@ -85,11 +76,12 @@ void debug_print_trie(trienode *root)
 void initialize_trie(trienode **root)
 {
     *root = newnode();
+    return;
 }
 
 int find_in_trie(trienode *root, char *str)
 {
-    for (int i = 0; i < strlen(str); i++)
+    for (int i = 0; i < (int)strlen(str); i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
         {
@@ -109,7 +101,7 @@ int find_in_trie(trienode *root, char *str)
 
 int delete_from_trie(trienode *root, char *str)
 {
-    for (int i = 0; i < strlen(str); i++)
+    for (int i = 0; i < (int)strlen(str); i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
         {
@@ -120,78 +112,196 @@ int delete_from_trie(trienode *root, char *str)
     if (root->hashind != -1)
     {
         root->hashind = -1;
+        // found
+        // also can free its children but who cares for storage
         return 1;
     }
     else
     {
+        // not found
         return -1;
     }
 }
 
-int main()
+void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN)
 {
-    trienode *root = NULL;
-    initialize_trie(&root);
-
-    trieinsert(root, "home", 1);
-    trieinsert(root, "home/abc", 2);
-    trieinsert(root, "home/abc/def/ghi", 4);
-    trieinsert(root, "home/abc/def/ghi/jkl/mno", 6);
-    trieinsert(root, "home/abc/def", 3);
-    trieinsert(root, "home/abc/def/ghi/jkl", 5);
-
-    trieinsert(root, "abhi", 7);
-    trieinsert(root, "abhiram", 8);
-    trieinsert(root, "abhiram/abc", 9);
-    trieinsert(root, "abhijeet", 10);
-
-    debug_print_trie(root);
-
-    int x = find_in_trie(root, "home");
-    if (x != -1)
+    if (node == NULL)
     {
-        printf("find home ouput %d\n", x);
-        printf("HOME found\n");
+        return;
     }
-    else
+    if (node->hashind != -1 && node->hashind < NS_MAX_CONN)
     {
-        printf("Not found\n");
+        arr[node->hashind] = 1;
     }
-
-    x = find_in_trie(root, "akshara");
-    if (x != -1)
+    for (int i = 0; i < 256; i++)
     {
-        printf("find akshara ouput %d\n", x);
-        printf("Akshara found\n");
+        if (node->child[i] != NULL)
+        {
+            mark_subtree(node->child[i], arr, NS_MAX_CONN);
+        }
     }
-    else
-    {
-        printf("Akshara Not found\n");
-    }
-
-    x = find_in_trie(root, "abhiram");
-    if (x != -1)
-    {
-        printf("find abhiram ouput %d\n", x);
-        printf("Abhiram found\n");
-    }
-    else
-    {
-        printf("Abhiram Not found\n");
-    }
-
-    delete_from_trie(root, "abhiram");
-
-    x = find_in_trie(root, "abhiram");
-    if (x != -1)
-    {
-        printf("find abhiram ouput %d\n", x);
-        printf("Abhiram found\n");
-    }
-    else
-    {
-        printf("Abhiram Not found\n");
-    }
-
-    return 0;
 }
+
+int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str)
+{
+    for (int i = 0; i < (int)strlen(str); i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            return -1;
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    mark_subtree(root, arr, NS_MAX_CONN);
+    return 1;
+}
+
+pthread_mutex_t *lock_in_trie(trienode *root, char *str)
+{
+    for (int i = 0; i < (int)strlen(str); i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            return NULL;
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    if (root->hashind != -1)
+    {
+        return &root->lock;
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
+void print_all_subtree(trienode *node, char *path, int level)
+{
+    if (node == NULL)
+    {
+        return;
+    }
+
+    if (node->hashind != -1)
+    {
+        path[level] = '\0';
+        // printf("%s (hashind: %d)\n", path, node->hashind);
+        printf("%s\n", path);
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        char c = (char)i;
+        if (c == '/')
+        {
+            continue;
+            // printf("%s\n", str);
+            // return;
+        }
+        if (node->child[i] != NULL)
+        {
+            path[level] = (char)i; // Append the character to the current path
+            print_all_subtree(node->child[i], path, level + 1);
+        }
+    }
+}
+
+void print_all_childs(trienode *root, char *str)
+{
+    // printf("IN print_all_childs function\n");
+
+    for (int i = 0; i < (int)strlen(str); i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            printf("Directory not found\n");
+            return;
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    char path[256];
+    for (int i = 0; i < 256; i++)
+    {
+        char c = (char)i;
+        if (c == '/')
+        {
+            continue;
+            // printf("%s\n", str);
+            // return;
+        }
+        if (root->child[i])
+            print_all_childs(root->child[i], path);
+    }
+
+    if (root->child[(int)'/'] == NULL)
+    {
+        // printf("%s\n", str);
+        return;
+    }
+    root = root->child[(int)'/'];
+
+    print_all_subtree(root, path, 0);
+    // char path[256];
+    // print_all_childs(root, str);
+    // At this point, root is at the end of the given path
+    // Print all immediate children that either end with a `/` or have a valid hashind
+    // if (root->child[(int)'/'] == NULL)
+    // {
+    //     printf("%s is a file", str);
+    //     return;
+    // }
+    // root = root->child[(int)'/'];
+    // printf("%c",root->child);
+
+    // for (int i = 0; i < 256; i++)
+    // {
+    //     if (root->child[i] != NULL)
+    //     {
+    //         char c = (char)i;
+    //         printf("%c", c);
+    //         if (root->child[i]->hashind != -1 || c == '/')
+    //         {
+    //             printf("%c", c);
+    //             // if (root->child[i]->hashind != -1)
+    //             // {
+    //             //     printf(" (File: %d)", root->child[i]->hashind);
+    //             // }
+    //             printf("NHIIIII\n");
+    //             printf("\n");
+    //         }
+    //     }
+    // }
+}
+
+// void print_all_childs(trienode *root, char *str)
+// {
+//     for (int i = 0; i < (int)strlen(str); i++)
+//     {
+//         if (root->child[(unsigned char)str[i]] == NULL)
+//         {
+//             return -1;
+//         }
+//         root = root->child[(unsigned char)str[i]];
+//     }
+//     // like actual ls prints so print till next / or print if node->hashind != -1
+// }
+
+// void print_all_subtree(trienode *node, int *arr, int NS_MAX_CONN)
+// {
+//     if (node == NULL)
+//     {
+//         return;
+//     }
+//     if (node->hashind != -1 && node->hashind < NS_MAX_CONN)
+//     {
+//         arr[node->hashind] = 1;
+//     }
+//     for (int i = 0; i < 256; i++)
+//     {
+//         if (node->child[i] != NULL)
+//         {
+//             print_all_subtree(node->child[i]);
+//         }
+//     }
+// }
