@@ -22,6 +22,7 @@
 #include <fcntl.h>
 
 #define FILENAME_MAX_LEN 4096
+#define CHUNK_SIZE 1000
 
 #define NS_MAX_CONN 1024
 
@@ -33,7 +34,7 @@
 typedef enum _Operation
 {
     OP_ACK,            /* MessageInt */
-    OP_RAW,            /* Message */
+    OP_RAW,            /* MessageChunk */
     OP_NS_INIT_SS,     /* MessageInt */
     OP_NS_INIT_CLIENT, /* Message */
     OP_NS_INIT_FILE,   /* MessageFile */
@@ -92,6 +93,13 @@ typedef struct _MessageFile
     char file[2 * FILENAME_MAX_LEN]; /* Need space for upto two files, : separated) */
 } MessageFile;
 
+typedef struct _MessageChunk
+{
+    Operation op;
+    int size;
+    char chunk[CHUNK_SIZE];
+} MessageChunk;
+
 typedef struct _MessageInt
 {
     Operation op;
@@ -125,6 +133,7 @@ typedef struct _SServerInfo
 void ipv4_print_addr(struct sockaddr_in *addr, const char *interface);
 
 int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd);
+int sock_connect_addr(struct sockaddr_in *addr);
 int sock_init(uint16_t *port);
 int sock_accept(int sock_fd, struct sockaddr_in *sock_addr, PortAndID *ss_pd);
 int sock_send(int sock, Message *message);
@@ -133,7 +142,7 @@ void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
 void stream_music(char *ip, uint16_t port);
-int stream_file(int client_socket, const char* filename);
+int stream_file(int client_socket, const char *filename);
 /* Path utils */
 
 #define SS_METADATA ".ss_metadata_hidden"
@@ -141,5 +150,7 @@ int stream_file(int client_socket, const char* filename);
 
 char *path_remove_prefix(char *self, char *op);
 char *path_concat(char *first, char *second);
+ErrCode path_sock_sendfile(int sock, char *path);
+ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile);
 
 #endif

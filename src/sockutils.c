@@ -3,6 +3,9 @@
 /* Returns 1 on success, 0 on failure */
 int sock_send(int sock, Message *message)
 {
+    if (sock < 0) {
+        return 0;
+    }
     switch (message->op)
     {
     case OP_NS_INIT_CLIENT:
@@ -284,6 +287,15 @@ int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd)
     }
 
     return sock_fd;
+}
+
+int sock_connect_addr(struct sockaddr_in *addr)
+{
+    char ip[INET_ADDRSTRLEN + 1];
+    uint16_t port;
+    inet_ntop(AF_INET, &addr->sin_addr.s_addr, ip, INET_ADDRSTRLEN);
+    port = ntohs(addr->sin_port);
+    return sock_connect(ip, &port, NULL);
 }
 
 int sock_accept(

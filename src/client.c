@@ -1,5 +1,4 @@
 #include "common.h"
-#define CHUNK_SIZE 2 * FILENAME_MAX_LEN
 
 int main(int argc, char *argv[])
 {
@@ -63,7 +62,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                if (scanf("%[^:]%[^\n]", request.file, arg2) != 2)
+                if (scanf("%[^:]:%[^\n]", request.file, arg2) != 2)
                 {
                     // error
                 }
@@ -131,7 +130,8 @@ int main(int argc, char *argv[])
                 printf("[SELF] Received Storage Server address: ");
                 ipv4_print_addr(&ss_addr->addr, NULL);
             }
-            else {
+            else
+            {
                 /* For create/delete/copy, we are done here */
                 continue;
             }
@@ -152,95 +152,30 @@ int main(int argc, char *argv[])
             // port = ntohs(ss_addr->addr.sin_port);
             if (strcasecmp(op, "READ") == 0)
             {
-                char ip[INET_ADDRSTRLEN + 1];
-                uint16_t port;
-                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
-                port = ntohs(ss_addr->addr.sin_port);
-                int sock_server = sock_connect(ip, &port, NULL);
-
+                ErrCode ret = ERR_NONE;
+                int sock_server = sock_connect_addr(&ss_addr->addr);
                 request.op = OP_SS_READ;
-
-                sock_send(sock_server, (Message *)&request);
-                // If need be we can implement acks
-                MessageFile *datasize = (MessageFile *)sock_get(sock_server);
-                if (datasize->op != OP_RAW)
-                {
-                    // error
-                }
-                int numchunks = datasize->size / (2 * FILENAME_MAX_LEN);
-                int recv_chunks = 0;
-                MessageFile *read_data;
-                // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
-                while (recv_chunks <= numchunks && strcmp((read_data = (MessageFile *)sock_get(sock_server))->file, "STOP") != 0)
-                {
-                    if (read_data->op != OP_SS_READ)
-                    {
-                        // error;
-                    }
-                    recv_chunks++;
-                    if (datasize->size > 2 * FILENAME_MAX_LEN)
-                    {
-                        datasize->size -= 2 * FILENAME_MAX_LEN;
-                        printf("%s", read_data->file);
-                    }
-                    else
-                    {
-                        printf("%.*s\n", datasize->size, read_data->file);
-                    }
-                }
-                // close(sock_server);
+                path_sock_getfile(sock_server, (Message *)&request, stdout);
+                close(sock_server);
             }
             else if (strcasecmp(op, "WRITE") == 0)
             {
-                char ip[INET_ADDRSTRLEN + 1];
-                uint16_t port;
-                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
-                port = ntohs(ss_addr->addr.sin_port);
-                int sock_server = sock_connect(ip, &port, NULL);
-
+                ErrCode ret = ERR_NONE;
+                int sock_server = sock_connect_addr(&ss_addr->addr);
                 request.op = OP_SS_WRITE;
-
-                sock_send(sock_server, (Message *)&request);
-                char *filepath;
-                filepath = strdup(arg2+1);
-                printf("Filepath: %s\n", filepath);
-
-                FILE *file = fopen(filepath, "r");
-                if (!file)
+                if (!sock_send(sock_server, (Message *)&request))
                 {
-                    printf("Error opening file\n");
-                    // error
+                    ret = ERR_CONN;
                 }
-                fseek(file, 0, SEEK_END);
-                int file_size = ftell(file);
-                rewind(file);
-                Message data;
-                data.op = OP_RAW;
-                data.size = file_size;
-                sock_send(sock_server, (Message *)&data);
-
-                // If someone else is writing to the file, you cant write so wait till server sends an ACK
-                Message *ack = sock_get(sock_server);
-                if (ack->op != OP_ACK)
+                if (ret == ERR_NONE)
                 {
-                    // error
+                    ret = sock_get_ack(sock_server);
                 }
-                // read from file and send 2*FILENAME_MAX_LEN bytes at a time
-                // find the size of the file preemptively and send it first
-
-                char buffer[CHUNK_SIZE];
-                int read_bytes;
-                while ((read_bytes = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
+                if (ret == ERR_NONE)
                 {
-                    MessageFile chunk;
-                    chunk.op = OP_RAW;
-                    chunk.size = read_bytes;
-                    memcpy(chunk.file, buffer, read_bytes);
-                    printf("Sending chunk %s\n", chunk.file);
-                    sock_send(sock_server, (Message *)&chunk);
+                    ret = path_sock_sendfile(sock_server, arg2);
                 }
-                fclose(file);
-                // close(sock_server);
+                close(sock_server);
             }
             else if (strcasecmp(op, "STREAM") == 0)
             {

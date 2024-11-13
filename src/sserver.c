@@ -1,5 +1,4 @@
 #include "common.h"
-#define CHUNK_SIZE 2 * FILENAME_MAX_LEN
 
 char *storage_path = NULL;
 
@@ -153,61 +152,6 @@ ErrCode sserver_delete(char *input_file_path)
     return ret;
 }
 
-void sendfile(int sock, const char *path)
-{
-    // print pwd
-
-    FILE *file = fopen(path, "r");
-    if (!file)
-    {
-        perror("[SELF] Could not open file");
-        return;
-    }
-
-    fseek(file, 0, SEEK_END);
-    int file_size = ftell(file);
-    rewind(file);
-
-    MessageFile data;
-    data.op = OP_RAW;
-    data.size = file_size;
-    sock_send(sock, (Message *)&data);
-
-    char buffer[CHUNK_SIZE];
-    int read_bytes;
-    while ((read_bytes = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
-    {
-        MessageFile chunk;
-        chunk.op = OP_RAW;
-        chunk.size = read_bytes;
-        memcpy(chunk.file, buffer, read_bytes);
-        sock_send(sock, (Message *)&chunk);
-    }
-    fclose(file);
-}
-
-void writefile(int sock, const char *path, int numchunks)
-{
-    // We come here after checking if the file is availabe to write
-    FILE *file = fopen(path, "w");
-    if (!file)
-    {
-        perror("[SELF] Could not open file");
-        return;
-    }
-    MessageFile *fdata;
-    int recv_chunks = 0;
-    int num_bytes;
-    while (recv_chunks < numchunks && (fdata = (MessageFile *)sock_get(sock)) != 0)
-    {
-        // printf("1\n");
-        recv_chunks++;
-        fwrite(fdata->file, sizeof(char), fdata->size, file);
-        fflush(file);
-    }
-    fclose(file);
-}
-
 void *handle_client(void *fd_ptr)
 {
     int sock_fd = (int)(intptr_t)fd_ptr;
@@ -215,58 +159,53 @@ void *handle_client(void *fd_ptr)
     while (1)
     {
         MessageFile *msg = (MessageFile *)sock_get(sock_fd);
-        printf("Hello\n");
-        // printf("OP: %d\n", msg->op);
-        // printf("Size: %d\n", msg->size);
-        // printf("File: %s\n", msg->file);
         if (!msg)
         {
-            printf("!msg\n");
             break;
         }
-        msg->file[msg->size] = '\0';
-        strcpy(msg->file, path_concat(storage_path, msg->file));
-
+        char *actual_path = path_concat(storage_path, msg->file);
         ErrCode ecode = ERR_NONE;
         switch (msg->op)
         {
-            case OP_SS_READ:
+        case OP_SS_READ:
+        {
+            path_sock_sendfile(sock_fd, actual_path);
+            break;
+        }
+        case OP_SS_WRITE:
+        {
+            // check if anyone else writing
+            FILE *file = fopen(actual_path, "w");
+            if (!file)
             {
-                printf("[SELF] Reading file '%s'\n", msg->file);
-                sendfile(sock_fd, msg->file);
-                printf("[CLIENT %d] Disconnected\n", sock_fd);
-
-                return NULL;
+                perror("[SELF] Could not open file");
+                ecode = ERR_NONE;
             }
-            case OP_SS_WRITE:
-            {
-                // check if anyone else writing
-                MessageInt ack;
-                ack.op = OP_ACK;
-                sock_send(sock_fd, (Message *)&ack);
-                Message* size_msg = sock_get(sock_fd);
-                int size = size_msg->size;
-                int num_chunks = size / (2 * FILENAME_MAX_LEN) + 1;
-                writefile(sock_fd, msg->file, num_chunks);
-                return NULL;
-            }
-            case OP_SS_STREAM:
-            {
-                printf("[SELF] Streaming file '%s'\n", msg->file);
-                // sendfile(sock_fd, msg->file);
-                stream_file(sock_fd, msg->file);
-                return NULL;
-            }
+            MessageInt ack;
+            ack.op = OP_ACK;
+            ack.info = ecode;
+            path_sock_getfile(sock_fd, (Message *)&ack, file);
+            fclose(file);
+            break;
+        }
+        case OP_SS_STREAM:
+        {
+            printf("[SELF] Streaming file '%s'\n", msg->file);
+            // sendfile(sock_fd, msg->file);
+            stream_file(sock_fd, msg->file);
+            break;
+        }
         default:
             /* Invalid OP at this case */
             ecode = ERR_REQ;
             sock_send_ack(sock_fd, &ecode);
+            break;
         }
-        // check if I am double freeing
+        free(actual_path);
     }
 
     printf("[CLIENT %d] Disconnected\n", sock_fd);
-    // close(sock_fd);
+    close(sock_fd);
     return NULL;
 }
 
