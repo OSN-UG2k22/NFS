@@ -205,7 +205,7 @@ void *handle_client(void *fd_ptr)
         {
             printf("[SELF] Streaming file '%s'\n", msg->file);
             // sendfile(sock_fd, msg->file);
-            const char* filename = actual_path;
+            const char *filename = actual_path;
             uint16_t port = 0;
 
             int server_socket = sock_init(&port);
@@ -214,21 +214,21 @@ void *handle_client(void *fd_ptr)
             port_msg.op = OP_ACK;
             port_msg.info = port;
             sock_send(sock_fd, (Message *)&port_msg);
-            
 
             // while (1) {
-                struct sockaddr_in client_addr;
-                socklen_t client_len = sizeof(client_addr);
-                int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
-                
-                if (client_socket < 0) {
-                    perror("Accept failed");
-                    continue;
-                }
+            struct sockaddr_in client_addr;
+            socklen_t client_len = sizeof(client_addr);
+            int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
 
-                printf("Client connected. Streaming file...\n");
-                stream_file(client_socket, filename);
-                close(client_socket);
+            if (client_socket < 0)
+            {
+                perror("Accept failed");
+                continue;
+            }
+
+            printf("Client connected. Streaming file...\n");
+            stream_file(client_socket, filename);
+            close(client_socket);
             // }
 
             close(server_socket);
@@ -280,7 +280,6 @@ void *handle_ns(void *ns_fd_ptr)
         }
 
         ErrCode ecode = ERR_NONE;
-        int sserver_fd;
         switch (msg->op)
         {
         case OP_NS_CREATE:
@@ -305,6 +304,68 @@ void *handle_ns(void *ns_fd_ptr)
             else
             {
                 printf("[SELF] Failed to delete path '%s'\n", msg->file);
+            }
+            break;
+        case OP_NS_COPY:
+            int dst_sock = -1;
+            FILE *src_file = NULL;
+            char *src_path = strchr(msg->file, ':');
+            if (!src_path)
+            {
+                ecode = ERR_REQ;
+            }
+            else
+            {
+                *src_path = '\0';
+                src_path++;
+                src_path = path_concat(storage_path, src_path);
+                if (src_path)
+                {
+                    src_file = fopen(src_path, "r");
+                    free(src_path);
+                    if (!src_file)
+                    {
+                        ecode = ERR_SYS;
+                    }
+                }
+            }
+            MessageAddr *reply_addr = NULL;
+            if (ecode == ERR_NONE)
+            {
+                reply_addr = (MessageAddr *)sock_get(ns_fd);
+                if (reply_addr->op != OP_NS_REPLY_SS)
+                {
+                    ecode = ERR_SYNC;
+                }
+                else
+                {
+                    dst_sock = sock_connect_addr(&reply_addr->addr);
+                    if (dst_sock < 0)
+                    {
+                        ecode = ERR_CONN;
+                    }
+                }
+            }
+            if (ecode == ERR_NONE)
+            {
+                msg->op = OP_SS_WRITE;
+                ecode = sock_send(dst_sock, (Message *)msg) ? sock_get_ack(dst_sock) : ERR_CONN;
+                if (ecode == ERR_NONE)
+                {
+                    ecode = path_sock_sendfile(dst_sock, src_file);
+                }
+                fclose(src_file);
+                close(dst_sock);
+            }
+
+            sock_send_ack(ns_fd, &ecode);
+            if (ecode == ERR_NONE)
+            {
+                printf("[SELF] Copied paths '%s'\n", msg->file);
+            }
+            else
+            {
+                printf("[SELF] Failed to copy paths '%s'\n", msg->file);
             }
             break;
         default:
@@ -402,9 +463,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         struct sockaddr_in sock_addr;
-        printf("[SELF] Waiting for connection\n");
         int conn_fd = sock_accept(sserver_fd, &sock_addr, NULL);
-        printf("[SELF] Connection accepted\n");
         if (conn_fd < 0)
         {
             continue;

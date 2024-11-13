@@ -24,11 +24,19 @@ SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_
     if (pd->id < NS_MAX_CONN)
     {
         ret = &sservers[pd->id];
-        ret->addr = *addr;
-        ret->sock_fd = sock_fd;
-        ret->is_used = 1;
-        ret->id = pd->id;
-        ret->_port = pd->port;
+        if (ret->is_used)
+        {
+            /* Used already, don't accept connection */
+            ret = NULL;
+        }
+        else
+        {
+            ret->addr = *addr;
+            ret->sock_fd = sock_fd;
+            ret->is_used = 1;
+            ret->id = pd->id;
+            ret->_port = pd->port;
+        }
     }
 end:
     pthread_mutex_unlock(&sservers_lock);
@@ -93,7 +101,7 @@ void *handle_client(void *client_socket)
         }
 
         ErrCode ecode = ERR_NONE;
-        int sserver_fd;
+        int sserver_fd = -1;
         switch (msg->op)
         {
         case OP_NS_CREATE:
@@ -143,10 +151,51 @@ void *handle_client(void *client_socket)
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_COPY:
-            /* TODO: Split into two */
-            ecode = ERR_REQ;
+            MessageAddr msg_addr;
+            msg_addr.op = OP_NS_REPLY_SS;
+            char *tmp = strchr(msg->file, ':');
+            if (!tmp)
+            {
+                ecode = ERR_REQ;
+            }
+            else
+            {
+                *tmp = '\0';
+                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr);
+                if (ecode == ERR_NONE)
+                {
+                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL);
+                }
+                *tmp = ':';
+            }
+            if (ecode == ERR_NONE)
+            {
+                if (sock_send(sserver_fd, (Message *)msg))
+                {
+                    if (sock_send(sserver_fd, (Message *)&msg_addr))
+                    {
+                        ecode = sock_get_ack(sserver_fd);
+                    }
+                    else
+                    {
+                        ecode = ERR_CONN;
+                    }
+                }
+                else
+                {
+                    ecode = ERR_CONN;
+                }
+            }
             sock_send_ack(sock, &ecode);
-            printf("[CLIENT %d] Copied paths '%s'\n", sock, msg->file);
+            if (ecode == ERR_NONE)
+            {
+                printf("[CLIENT %d] Copied paths '%s'\n", sock, msg->file);
+            }
+            else
+            {
+                printf("[CLIENT %d] Failed to copy paths '%s': %s\n",
+                       sock, msg->file, errcode_to_str(ecode));
+            }
             break;
         case OP_NS_GET_SS:
             MessageAddr reply_addr;
@@ -215,12 +264,11 @@ void *handle_ss(void *sserver_void)
     printf("[STORAGE SERVER %d] Finished exposing all files, now ready to process requests\n", sserver->id);
     while (1)
     {
-        // Message *msg = sock_get(sserver->sock_fd);
-        // if (!msg)
-        // {
-        //     break;
-        // }
-        // free(msg);
+        char buffer;
+        if (recv(sserver->sock_fd, &buffer, 1, MSG_PEEK) != 1)
+        {
+            break;
+        }
         sleep(1);
     }
 end:
@@ -271,7 +319,7 @@ int main(int argc, char *argv[])
                 if (!sserver)
                 {
                     close(conn_fd);
-                    fprintf(stderr, "[SELF] Exceeded limit on storage servers!\n");
+                    fprintf(stderr, "[SELF] Rejected storage server request!\n");
                     continue;
                 }
                 if (pthread_create(&thread_id, NULL, handle_ss, (void *)sserver) != 0)

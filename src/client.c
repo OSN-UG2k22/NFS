@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
         printf("- WRITE [path]:[optional local file to read contents from]\n");
         printf("- STREAM [path]\n");
         printf("- INFO [path]\n");
-        printf("- COPY [source path]:[destination path]\n");
+        printf("- COPY [destination path]:[source path]\n");
         printf("- LS [path]\n");
         printf("- CREATE [path]\n");
         printf("- DELETE [path]\n");
@@ -52,11 +52,15 @@ int main(int argc, char *argv[])
                 arg_len--;
             }
             request.file[arg_len] = '\0';
-            char *arg2 = strchr(request.file, ':');
-            if (arg2)
+            char *arg2 = NULL;
+            if (strcasecmp(op, "READ") == 0 || strcasecmp(op, "WRITE") == 0)
             {
-                arg2[0] = '\0';
-                arg2++;
+                arg2 = strchr(request.file, ':');
+                if (arg2)
+                {
+                    arg2[0] = '\0';
+                    arg2++;
+                }
             }
 
             if (strcasecmp(op, "COPY") == 0)
