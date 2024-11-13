@@ -68,7 +68,11 @@ void delete_from_cache(LRU_Cache *cache, char *str)
     {
         if (strcmp(str, temp->name) == 0)
         {
-            if (temp->prev == NULL)
+            if (temp->prev == NULL && temp->next == NULL)
+            {
+                cache->head = NULL;
+            }
+            else if (temp->prev == NULL)
             {
                 cache->head = temp->next;
                 temp->next->prev = NULL;
@@ -121,5 +125,4 @@ int find_and_update(LRU_Cache *cache, char *str)
         return x;
     }
     return -1;
-    // find_in_trie(str); logic
 }

@@ -123,27 +123,13 @@ int delete_from_trie(trienode *root, char *str)
     }
 }
 
-void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN)
-{
-    if (node == NULL)
-    {
-        return;
-    }
-    if (node->hashind != -1 && node->hashind < NS_MAX_CONN)
-    {
-        arr[node->hashind] = 1;
-    }
-    for (int i = 0; i < 256; i++)
-    {
-        if (node->child[i] != NULL)
-        {
-            mark_subtree(node->child[i], arr, NS_MAX_CONN);
-        }
-    }
-}
-
 int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str)
 {
+    if (root == NULL)
+    {
+        return -1;
+    }
+
     for (int i = 0; i < (int)strlen(str); i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
@@ -154,6 +140,25 @@ int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str)
     }
     mark_subtree(root, arr, NS_MAX_CONN);
     return 1;
+}
+
+void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN)
+{
+    if (node == NULL)
+    {
+        return;
+    }
+    if (node->hashind != -1 && node->hashind < NS_MAX_CONN && node->hashind >= 0)
+    {
+        arr[node->hashind] = 1;
+    }
+    for (int i = 0; i < 256; i++)
+    {
+        if (node->child[i] != NULL)
+        {
+            mark_subtree(node->child[i], arr, NS_MAX_CONN);
+        }
+    }
 }
 
 pthread_mutex_t *lock_in_trie(trienode *root, char *str)
@@ -242,66 +247,4 @@ void print_all_childs(trienode *root, char *str)
     root = root->child[(int)'/'];
 
     print_all_subtree(root, path, 0);
-    // char path[256];
-    // print_all_childs(root, str);
-    // At this point, root is at the end of the given path
-    // Print all immediate children that either end with a `/` or have a valid hashind
-    // if (root->child[(int)'/'] == NULL)
-    // {
-    //     printf("%s is a file", str);
-    //     return;
-    // }
-    // root = root->child[(int)'/'];
-    // printf("%c",root->child);
-
-    // for (int i = 0; i < 256; i++)
-    // {
-    //     if (root->child[i] != NULL)
-    //     {
-    //         char c = (char)i;
-    //         printf("%c", c);
-    //         if (root->child[i]->hashind != -1 || c == '/')
-    //         {
-    //             printf("%c", c);
-    //             // if (root->child[i]->hashind != -1)
-    //             // {
-    //             //     printf(" (File: %d)", root->child[i]->hashind);
-    //             // }
-    //             printf("NHIIIII\n");
-    //             printf("\n");
-    //         }
-    //     }
-    // }
 }
-
-// void print_all_childs(trienode *root, char *str)
-// {
-//     for (int i = 0; i < (int)strlen(str); i++)
-//     {
-//         if (root->child[(unsigned char)str[i]] == NULL)
-//         {
-//             return -1;
-//         }
-//         root = root->child[(unsigned char)str[i]];
-//     }
-//     // like actual ls prints so print till next / or print if node->hashind != -1
-// }
-
-// void print_all_subtree(trienode *node, int *arr, int NS_MAX_CONN)
-// {
-//     if (node == NULL)
-//     {
-//         return;
-//     }
-//     if (node->hashind != -1 && node->hashind < NS_MAX_CONN)
-//     {
-//         arr[node->hashind] = 1;
-//     }
-//     for (int i = 0; i < 256; i++)
-//     {
-//         if (node->child[i] != NULL)
-//         {
-//             print_all_subtree(node->child[i]);
-//         }
-//     }
-// }

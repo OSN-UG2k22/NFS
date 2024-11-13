@@ -43,7 +43,8 @@ int create(int main_server, char *str) // takes main server and string path inse
 
 int search(char *str) // searches in lru first, if not found then in trie returns -1 if not found in both
 {
-    int x = find_in_cache(__global_lru, str);
+    // int x = find_in_cache(__global_lru, str);
+    int x = find_and_update(__global_lru, str);
     if (x != -1)
     {
         return x;
@@ -55,14 +56,21 @@ int search(char *str) // searches in lru first, if not found then in trie return
     }
     return -1;
 }
+// int find_all(int *arr, int max_conn, char *str); // to remove warning
 
-int *delete_file_folder(char *str) // first deletes from lru then deletes from from trie
+int *delete_file_folder(char *str) // first deletes from LRU, then deletes from trie
 {
-    int *arr = malloc(NS_MAX_CONN * sizeof(int));
-    int x = find_all(arr, NS_MAX_CONN, str);
+    int *arr = calloc(NS_MAX_CONN, sizeof(int));
+    if (arr == NULL) {
+        perror("Failed to allocate memory");
+        return NULL;
+    }
+    
+    int x = find_all(__global_trie, arr, NS_MAX_CONN, str);
     if (x == -1)
     {
         printf("Wrong Path\n");
+        free(arr);
         return NULL;
     }
 

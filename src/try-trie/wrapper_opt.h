@@ -6,6 +6,7 @@
 
 trienode *__global_trie = NULL;
 LRU_Cache *__global_lru = NULL;
+// int find_all(int *arr, int max_conn, char *str);// to prevent implicit declaration
 
 int create(int main_server, char *str); // takes main server and string path inserts in trie updates lru
 int search(char *str);                  // searches in lru first, if not found then in trie returns -1 if not found in both
