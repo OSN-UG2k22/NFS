@@ -19,6 +19,7 @@
 #include <sys/stat.h>
 #include <vlc/vlc.h>
 #include <inttypes.h>
+#include <fcntl.h>
 
 #define FILENAME_MAX_LEN 4096
 
@@ -131,8 +132,8 @@ Message *sock_get(int sock);
 void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
-void stream_music(char *ip, int port);
-
+void stream_music(char *ip, uint16_t port);
+int stream_file(int client_socket, const char* filename);
 /* Path utils */
 
 #define SS_METADATA ".ss_metadata_hidden"

@@ -15,7 +15,7 @@ client: src/client.c src/sockutils.c src/pathutils.c src/audiostream.c
 nserver: src/nserver.c src/sockutils.c src/pathutils.c
 	$(CC) $(CFLAGS) $^ -o $@ $(EXTRA_CFLAGS)
 
-sserver: src/sserver.c src/sockutils.c src/pathutils.c
+sserver: src/sserver.c src/sockutils.c src/pathutils.c src/audiostream.c
 	$(CC) $(CFLAGS) $^ -o $@ $(EXTRA_CFLAGS)
 
 # clean command

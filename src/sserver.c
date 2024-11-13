@@ -155,7 +155,9 @@ ErrCode sserver_delete(char *input_file_path)
 
 void sendfile(int sock, const char *path)
 {
-    FILE *file = fopen(path, "rb");
+    // print pwd
+
+    FILE *file = fopen(path, "r");
     if (!file)
     {
         perror("[SELF] Could not open file");
@@ -170,7 +172,6 @@ void sendfile(int sock, const char *path)
     data.op = OP_RAW;
     data.size = file_size;
     sock_send(sock, (Message *)&data);
-    printf("holalal");
 
     char buffer[CHUNK_SIZE];
     int read_bytes;
@@ -189,29 +190,42 @@ void writefile(int sock, const char *path, int numchunks)
 {
     // We come here after checking if the file is availabe to write
     FILE *file = fopen(path, "w");
+    if (!file)
+    {
+        perror("[SELF] Could not open file");
+        return;
+    }
     MessageFile *fdata;
     int recv_chunks = 0;
     int num_bytes;
-    while (recv_chunks <= numchunks && (fdata = (MessageFile *)sock_get(sock)) != 0)
+    while (recv_chunks < numchunks && (fdata = (MessageFile *)sock_get(sock)) != 0)
     {
+        // printf("1\n");
         recv_chunks++;
         fwrite(fdata->file, sizeof(char), fdata->size, file);
+        fflush(file);
     }
+    fclose(file);
 }
 
 void *handle_client(void *fd_ptr)
 {
     int sock_fd = (int)(intptr_t)fd_ptr;
-    printf("sserver debug2\n");
     printf("[CLIENT %d] Connected to handle requests now\n", sock_fd);
     while (1)
-    {printf("sserver debug3\n");
+    {
         MessageFile *msg = (MessageFile *)sock_get(sock_fd);
-        printf("sserver debug4\n");
+        printf("Hello\n");
+        // printf("OP: %d\n", msg->op);
+        // printf("Size: %d\n", msg->size);
+        // printf("File: %s\n", msg->file);
         if (!msg)
         {
+            printf("!msg\n");
             break;
         }
+        msg->file[msg->size] = '\0';
+        strcpy(msg->file, path_concat(storage_path, msg->file));
 
         ErrCode ecode = ERR_NONE;
         switch (msg->op)
@@ -220,17 +234,39 @@ void *handle_client(void *fd_ptr)
             {
                 printf("[SELF] Reading file '%s'\n", msg->file);
                 sendfile(sock_fd, msg->file);
+                printf("[CLIENT %d] Disconnected\n", sock_fd);
+
+                return NULL;
+            }
+            case OP_SS_WRITE:
+            {
+                // check if anyone else writing
+                MessageInt ack;
+                ack.op = OP_ACK;
+                sock_send(sock_fd, (Message *)&ack);
+                Message* size_msg = sock_get(sock_fd);
+                int size = size_msg->size;
+                int num_chunks = size / (2 * FILENAME_MAX_LEN) + 1;
+                writefile(sock_fd, msg->file, num_chunks);
+                return NULL;
+            }
+            case OP_SS_STREAM:
+            {
+                printf("[SELF] Streaming file '%s'\n", msg->file);
+                // sendfile(sock_fd, msg->file);
+                stream_file(sock_fd, msg->file);
+                return NULL;
             }
         default:
             /* Invalid OP at this case */
             ecode = ERR_REQ;
             sock_send_ack(sock_fd, &ecode);
         }
-        free(msg);
+        // check if I am double freeing
     }
 
     printf("[CLIENT %d] Disconnected\n", sock_fd);
-    close(sock_fd);
+    // close(sock_fd);
     return NULL;
 }
 
@@ -367,10 +403,11 @@ int main(int argc, char *argv[])
     }
 
     while (1)
-    {printf("sserver debug\n");
+    {
         struct sockaddr_in sock_addr;
+        printf("[SELF] Waiting for connection\n");
         int conn_fd = sock_accept(sserver_fd, &sock_addr, NULL);
-        printf("sserver debug1\n");
+        printf("[SELF] Connection accepted\n");
         if (conn_fd < 0)
         {
             continue;
@@ -381,7 +418,7 @@ int main(int argc, char *argv[])
             perror("[SELF] Thread creation failed");
             continue;
         }
-
+        printf("HIYA\n");
         pthread_detach(thread_id);
     }
 

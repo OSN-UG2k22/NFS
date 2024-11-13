@@ -1,6 +1,31 @@
 #include "common.h"
+
+#define BUFFER_SIZE 1024
+
+int stream_file(int client_socket, const char* filename) {
+    char buffer[BUFFER_SIZE];
+    int file_fd = open(filename, O_RDONLY);
+    
+    if (file_fd < 0) {
+        perror("Failed to open file");
+        return -1;
+    }
+
+    ssize_t bytes_read;
+    while ((bytes_read = read(file_fd, buffer, BUFFER_SIZE)) > 0) {
+        ssize_t bytes_sent = send(client_socket, buffer, bytes_read, 0);
+        if (bytes_sent < 0) {
+            perror("Failed to send data");
+            close(file_fd);
+            return -1;
+        }
+    }
+
+    close(file_fd);
+    return 0;
+}
  
-void stream_music(char* ip, int port)
+void stream_music(char* ip, uint16_t port)
 {
     libvlc_instance_t * inst;
     libvlc_media_player_t *mp;
@@ -10,7 +35,7 @@ void stream_music(char* ip, int port)
     // const char* ip = ip;
     int porta = port;
     char media_url[256];
-    snprintf(media_url, sizeof(media_url), "tcp://%s:%d", ip, porta);
+    snprintf(media_url, sizeof(media_url), "tcp://%s:%d", ip, port);
 
     const char *args[] = {
         "--verbose=2",
