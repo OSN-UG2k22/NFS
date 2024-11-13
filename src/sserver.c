@@ -205,8 +205,33 @@ void *handle_client(void *fd_ptr)
         {
             printf("[SELF] Streaming file '%s'\n", msg->file);
             // sendfile(sock_fd, msg->file);
-            stream_file(sock_fd, msg->file);
-            break;
+            const char* filename = actual_path;
+            uint16_t port = 0;
+
+            int server_socket = sock_init(&port);
+            // inform client of port and ip
+            MessageInt port_msg;
+            port_msg.op = OP_ACK;
+            port_msg.info = port;
+            sock_send(sock_fd, (Message *)&port_msg);
+            
+
+            while (1) {
+                struct sockaddr_in client_addr;
+                socklen_t client_len = sizeof(client_addr);
+                int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
+                
+                if (client_socket < 0) {
+                    perror("Accept failed");
+                    continue;
+                }
+
+                printf("Client connected. Streaming file...\n");
+                stream_file(client_socket, filename);
+                close(client_socket);
+            }
+
+            close(server_socket);
         }
         default:
             /* Invalid OP at this case */

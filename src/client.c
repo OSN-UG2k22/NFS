@@ -187,8 +187,14 @@ int main(int argc, char *argv[])
 
                 request.op = OP_SS_STREAM;
                 sock_send(sock_server, (Message *)&request);
-                stream_music(ip, port);
-                // close(sock_server);
+                MessageInt *port_msg = (MessageInt *)sock_get(sock_server);
+                if (port_msg->op != OP_ACK)
+                {
+                    // error
+                }
+                sleep(1);
+                stream_music(ip, port_msg->info);
+                close(sock_server);
             }
             else if (strcasecmp(op, "INFO") == 0)
             {

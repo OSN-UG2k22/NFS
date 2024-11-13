@@ -31,7 +31,7 @@ void stream_music(char* ip, uint16_t port)
     libvlc_media_player_t *mp;
     libvlc_media_t *m;
 
-    // int running = 1;
+    int running = 1;
     // const char* ip = ip;
     int porta = port;
     char media_url[256];
@@ -61,7 +61,7 @@ void stream_music(char* ip, uint16_t port)
     libvlc_media_player_play (mp);
     
     sleep(1);
-    while (libvlc_media_player_is_playing(mp))
+    while (libvlc_media_player_is_playing(mp) && running)
     {
         sleep (1);
         int64_t milliseconds = libvlc_media_player_get_time(mp);
@@ -70,8 +70,15 @@ void stream_music(char* ip, uint16_t port)
         milliseconds -= seconds * 1000;
         seconds -= minutes * 60;
  
-        printf("Current time: %" PRId64 ":%" PRId64 ":%" PRId64 "\n",
-               minutes, seconds, milliseconds);
+        // printf("Current time: %" PRId64 ":%" PRId64 ":%" PRId64 "\n",
+        //        minutes, seconds, milliseconds);
+        printf("Press 'q' to quit\n");
+        char c = getchar();
+        if (c == 'q')
+        {
+            running = 0;
+            break;
+        }
     }
  
     /* Stop playing */
