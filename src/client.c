@@ -23,8 +23,8 @@ int main(int argc, char *argv[])
     if (sock_fd >= 0)
     {
         printf("List of supported commands:\n");
-        printf("- READ [path]\n");
-        printf("- WRITE [path]:[local file to read contents from]\n");
+        printf("- READ [path]:[optional local file to write contents to]\n");
+        printf("- WRITE [path]:[optional local file to read contents from]\n");
         printf("- STREAM [path]\n");
         printf("- INFO [path]\n");
         printf("- COPY [source path]:[destination path]\n");
@@ -41,33 +41,23 @@ int main(int argc, char *argv[])
             }
 
             MessageFile request;
-            // if (!fgets(request.file, sizeof(request.file), stdin))
-            // {
-            //     break;
-            // }
+            if (!fgets(request.file, sizeof(request.file), stdin))
+            {
+                break;
+            }
             /* Strip newline */
-            // size_t arg_len = strlen(request.file);
-            // while (arg_len && request.file[arg_len - 1] == '\n')
-            // {
-            //     arg_len--;
-            // }
-            // request.file[arg_len] = '\0';
-            char arg2[FILENAME_MAX_LEN];
-            if (strcmp(op, "WRITE") != 0)
+            size_t arg_len = strlen(request.file);
+            while (arg_len && request.file[arg_len - 1] == '\n')
             {
-                if (scanf("%[^\n]", request.file) != 1)
-                {
-                    // error
-                }
+                arg_len--;
             }
-            else
+            request.file[arg_len] = '\0';
+            char *arg2 = strchr(request.file, ':');
+            if (arg2)
             {
-                if (scanf("%[^:]:%[^\n]", request.file, arg2) != 2)
-                {
-                    // error
-                }
+                arg2[0] = '\0';
+                arg2++;
             }
-            // error handling if filename exceeds ?
 
             if (strcasecmp(op, "COPY") == 0)
             {
@@ -136,46 +126,56 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            /* TODO: integrate below code later */
-            // #if 0
-            // char ip[INET_ADDRSTRLEN + 1];
-            // // char port [6];
-            // uint16_t port;
-            // inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
-            // // sprintf(port,"%d",ntohs(ss_addr->addr.sin_port));
-            // port = ntohs(ss_addr->addr.sin_port);
-            // int sock_server = sock_connect(ip, &port, NULL);
-            // if (sock_server < 0)
-            // {
-            //     // error
-            // }
-            // port = ntohs(ss_addr->addr.sin_port);
             if (strcasecmp(op, "READ") == 0)
             {
-                ErrCode ret = ERR_NONE;
-                int sock_server = sock_connect_addr(&ss_addr->addr);
-                request.op = OP_SS_READ;
-                path_sock_getfile(sock_server, (Message *)&request, stdout);
-                close(sock_server);
+                FILE *outfile = arg2 ? fopen(arg2, "w") : stdout;
+                if (!outfile)
+                {
+                    perror("[SELF] Could not open local file");
+                }
+                else
+                {
+                    ErrCode ret = ERR_NONE;
+                    int sock_server = sock_connect_addr(&ss_addr->addr);
+                    request.op = OP_SS_READ;
+                    path_sock_getfile(sock_server, (Message *)&request, outfile);
+                    if (outfile != stdout)
+                    {
+                        fclose(outfile);
+                    }
+                    close(sock_server);
+                }
             }
             else if (strcasecmp(op, "WRITE") == 0)
             {
-                ErrCode ret = ERR_NONE;
-                int sock_server = sock_connect_addr(&ss_addr->addr);
-                request.op = OP_SS_WRITE;
-                if (!sock_send(sock_server, (Message *)&request))
+                FILE *infile = arg2 ? fopen(arg2, "r") : stdin;
+                if (!infile)
                 {
-                    ret = ERR_CONN;
+                    perror("[SELF] Could not open local file");
                 }
-                if (ret == ERR_NONE)
+                else
                 {
-                    ret = sock_get_ack(sock_server);
+                    ErrCode ret = ERR_NONE;
+                    int sock_server = sock_connect_addr(&ss_addr->addr);
+                    request.op = OP_SS_WRITE;
+                    if (!sock_send(sock_server, (Message *)&request))
+                    {
+                        ret = ERR_CONN;
+                    }
+                    if (ret == ERR_NONE)
+                    {
+                        ret = sock_get_ack(sock_server);
+                    }
+                    if (ret == ERR_NONE)
+                    {
+                        ret = path_sock_sendfile(sock_server, infile);
+                    }
+                    if (infile != stdin)
+                    {
+                        fclose(infile);
+                    }
+                    close(sock_server);
                 }
-                if (ret == ERR_NONE)
-                {
-                    ret = path_sock_sendfile(sock_server, arg2);
-                }
-                close(sock_server);
             }
             else if (strcasecmp(op, "STREAM") == 0)
             {

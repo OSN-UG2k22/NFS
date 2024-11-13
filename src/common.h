@@ -150,7 +150,7 @@ int stream_file(int client_socket, const char *filename);
 
 char *path_remove_prefix(char *self, char *op);
 char *path_concat(char *first, char *second);
-ErrCode path_sock_sendfile(int sock, char *path);
+ErrCode path_sock_sendfile(int sock, FILE *infile);
 ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile);
 
 #endif

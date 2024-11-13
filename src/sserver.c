@@ -169,7 +169,17 @@ void *handle_client(void *fd_ptr)
         {
         case OP_SS_READ:
         {
-            path_sock_sendfile(sock_fd, actual_path);
+            FILE *file = fopen(actual_path, "r");
+            if (!file)
+            {
+                perror("[SELF] Could not open file");
+                ecode = ERR_SYS;
+            }
+            path_sock_sendfile(sock_fd, file);
+            if (file)
+            {
+                fclose(file);
+            }
             break;
         }
         case OP_SS_WRITE:
@@ -179,13 +189,16 @@ void *handle_client(void *fd_ptr)
             if (!file)
             {
                 perror("[SELF] Could not open file");
-                ecode = ERR_NONE;
+                ecode = ERR_SYS;
             }
             MessageInt ack;
             ack.op = OP_ACK;
             ack.info = ecode;
             path_sock_getfile(sock_fd, (Message *)&ack, file);
-            fclose(file);
+            if (file)
+            {
+                fclose(file);
+            }
             break;
         }
         case OP_SS_STREAM:

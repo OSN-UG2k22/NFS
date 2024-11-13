@@ -73,25 +73,18 @@ char *path_concat(char *first, char *second)
 }
 
 /* Returns a char buffer that should be freed by caller, or NULL on failure */
-ErrCode path_sock_sendfile(int sock, char *path)
+ErrCode path_sock_sendfile(int sock, FILE *infile)
 {
-    ErrCode ret = ERR_NONE;
-    FILE *file = fopen(path, "r");
-    if (!file)
-    {
-        perror("[SELF] Could not open file");
-        ret = ERR_SYS;
-        goto end;
-    }
-
+    ErrCode ret = infile ? ERR_NONE : ERR_SYS;
     MessageChunk chunk;
     chunk.op = OP_RAW;
-    while (1)
+    while (ret == ERR_NONE)
     {
-        int read_bytes = fread(chunk.chunk, 1, sizeof(chunk.chunk), file);
+        int read_bytes = fread(chunk.chunk, 1, sizeof(chunk.chunk), infile);
         if (!read_bytes)
         {
-            ret = ferror(file) ? ERR_SYS : ERR_NONE;
+            ret = ferror(infile) ? ERR_SYS : ERR_NONE;
+            clearerr(infile);
             break;
         }
         chunk.size = read_bytes;
@@ -105,22 +98,18 @@ end:
     sock_send_ack(sock, &ret);
     if (ret == ERR_NONE)
     {
-        printf("[SELF] Successfully sent file '%s'\n", path);
+        printf("[SELF] Successfully sent file\n");
     }
     else
     {
-        printf("[SELF] Failed to send file '%s'\n", path);
-    }
-    if (file)
-    {
-        fclose(file);
+        printf("[SELF] Failed to send file\n");
     }
     return ret;
 }
 
 ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
 {
-    int ret = ERR_NONE;
+    int ret = outfile ? ERR_NONE : ERR_SYS;
     if (!sock_send(sock, msg_header))
     {
         ret = ERR_CONN;
