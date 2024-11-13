@@ -198,41 +198,24 @@ int main(int argc, char *argv[])
             }
             else if (strcasecmp(op, "INFO") == 0)
             {
-                char ip[INET_ADDRSTRLEN + 1];
-                uint16_t port;
-                inet_ntop(AF_INET, &ss_addr->addr.sin_addr.s_addr, ip, INET_ADDRSTRLEN);
-                port = ntohs(ss_addr->addr.sin_port);
-                int sock_server = sock_connect(ip, &port, NULL);
-
-                sock_send(sock_server, (Message *)&request);
-                // If need be we can implement acks
-                MessageFile *datasize = (MessageFile *)sock_get(sock_server);
-                if (datasize->op != OP_RAW)
+                FILE *outfile = arg2 ? fopen(arg2, "w") : stdout;
+                if (!outfile)
                 {
-                    // error
+                    perror("[SELF] Could not open local file");
                 }
-                int numchunks = datasize->size / (2 * FILENAME_MAX_LEN);
-                int recv_chunks = 0;
-                MessageFile *read_data;
-                // while (recv_chunks < numchunks && (read_data = (MessageFile*) sock_get(sock_server))->op == OP_SS_READ && strcmp(read_data->file,"STOP") != 0)
-                while (recv_chunks <= numchunks && strcmp((read_data = (MessageFile *)sock_get(sock_server))->file, "STOP") != 0)
+                else
                 {
-                    if (read_data->op != OP_SS_INFO)
+                    ErrCode ret = ERR_NONE;
+                    int sock_server = sock_connect_addr(&ss_addr->addr);
+                    request.op = OP_SS_INFO;
+                    printf("%s ", request.file);
+                    path_sock_getfile(sock_server, (Message *)&request, outfile);
+                    if (outfile != stdout)
                     {
-                        // error;
+                        fclose(outfile);
                     }
-                    recv_chunks++;
-                    if (datasize->size > 2 * FILENAME_MAX_LEN)
-                    {
-                        datasize->size -= 2 * FILENAME_MAX_LEN;
-                        printf("%s", read_data->file);
-                    }
-                    else
-                    {
-                        printf("%.*s\n", datasize->size, read_data->file);
-                    }
+                    close(sock_server);
                 }
-                close(sock_server);
             }
             else
             {

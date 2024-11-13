@@ -216,7 +216,7 @@ void *handle_client(void *fd_ptr)
             sock_send(sock_fd, (Message *)&port_msg);
             
 
-            while (1) {
+            // while (1) {
                 struct sockaddr_in client_addr;
                 socklen_t client_len = sizeof(client_addr);
                 int client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
@@ -229,9 +229,29 @@ void *handle_client(void *fd_ptr)
                 printf("Client connected. Streaming file...\n");
                 stream_file(client_socket, filename);
                 close(client_socket);
-            }
+            // }
 
             close(server_socket);
+        }
+        case OP_SS_INFO:
+        {
+            // use ls -l program to get file(actual_path) info
+            // scrape size last modified date and name and permissions from it and send it to client
+            char command[256];
+            snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
+            printf("%s\n", actual_path);
+            FILE *file = popen(command, "r");
+            if (!file)
+            {
+                perror("[SELF] Could not open file");
+                ecode = ERR_SYS;
+            }
+            path_sock_sendfile(sock_fd, file);
+            if (file)
+            {
+                pclose(file);
+            }
+            break;
         }
         default:
             /* Invalid OP at this case */
