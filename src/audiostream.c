@@ -38,8 +38,9 @@ void stream_music(char* ip, uint16_t port)
     const char *args[] = {
     "--verbose=0",
     "--no-video",
-    "--aout=alsa",
-    "--network-caching=1000"  // Increase the network cache to 1000ms
+    // "--aout=alsa",
+    "--aout=pulse",
+    // "--network-caching=1000"  // Increase the network cache to 1000ms
     };
 
  
