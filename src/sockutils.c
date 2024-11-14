@@ -106,7 +106,7 @@ void ipv4_print_addr(struct sockaddr_in *addr, const char *interface)
         inet_ntop(AF_INET, &addr->sin_addr, ip_str, sizeof(ip_str));
         if (interface)
         {
-            printf("[SELF] %s (%s)\n", ip_str, interface);
+            printf("[SELF] - %s (%s)\n", ip_str, interface);
         }
         else
         {

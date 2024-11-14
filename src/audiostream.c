@@ -32,10 +32,8 @@ void stream_music(char* ip, uint16_t port)
     libvlc_media_t *m;
 
     int running = 1;
-    // const char* ip = ip;
-    int porta = port;
     char media_url[256];
-    snprintf(media_url, sizeof(media_url), "tcp://%s:%d", ip, port);
+    snprintf(media_url, sizeof(media_url), "tcp://%s:%hu", ip, port);
 
     const char *args[] = {
         "--verbose=2",

@@ -155,7 +155,6 @@ ErrCode sserver_delete(char *input_file_path)
 void *handle_client(void *fd_ptr)
 {
     int sock_fd = (int)(intptr_t)fd_ptr;
-    printf("[CLIENT %d] Connected to handle requests now\n", sock_fd);
     while (1)
     {
         MessageFile *msg = (MessageFile *)sock_get(sock_fd);
@@ -165,27 +164,27 @@ void *handle_client(void *fd_ptr)
         }
         char *actual_path = path_concat(storage_path, msg->file);
         ErrCode ecode = ERR_NONE;
+        char *operation = "invalid operation";
+        FILE *file = NULL;
         switch (msg->op)
         {
         case OP_SS_READ:
-        {
-            FILE *file = fopen(actual_path, "r");
+            operation = "read path";
+            file = fopen(actual_path, "r");
             if (!file)
             {
                 perror("[SELF] Could not open file");
                 ecode = ERR_SYS;
             }
-            path_sock_sendfile(sock_fd, file);
+            ecode = path_sock_sendfile(sock_fd, file);
             if (file)
             {
                 fclose(file);
             }
             break;
-        }
         case OP_SS_WRITE:
-        {
-            // check if anyone else writing
-            FILE *file = fopen(actual_path, "w");
+            operation = "write path";
+            file = fopen(actual_path, "w");
             if (!file)
             {
                 perror("[SELF] Could not open file");
@@ -194,18 +193,15 @@ void *handle_client(void *fd_ptr)
             MessageInt ack;
             ack.op = OP_ACK;
             ack.info = ecode;
-            path_sock_getfile(sock_fd, (Message *)&ack, file);
+            ecode = path_sock_getfile(sock_fd, (Message *)&ack, file);
             if (file)
             {
                 fclose(file);
             }
             break;
-        }
         case OP_SS_STREAM:
-        {
-            printf("[SELF] Streaming file '%s'\n", msg->file);
+            operation = "stream path";
             // sendfile(sock_fd, msg->file);
-            const char *filename = actual_path;
             uint16_t port = 0;
 
             int server_socket = sock_init(&port);
@@ -213,7 +209,13 @@ void *handle_client(void *fd_ptr)
             MessageInt port_msg;
             port_msg.op = OP_ACK;
             port_msg.info = port;
-            sock_send(sock_fd, (Message *)&port_msg);
+            ecode = sock_send(sock_fd, (Message *)&port_msg);
+            if (!ecode)
+            {
+                close(server_socket);
+                ecode = ERR_CONN;
+                break;
+            }
 
             // while (1) {
             struct sockaddr_in client_addr;
@@ -222,42 +224,47 @@ void *handle_client(void *fd_ptr)
 
             if (client_socket < 0)
             {
-                perror("Accept failed");
-                continue;
+                close(server_socket);
+                ecode = ERR_CONN;
+                break;
             }
 
-            printf("Client connected. Streaming file...\n");
-            stream_file(client_socket, filename);
+            stream_file(client_socket, actual_path);
             close(client_socket);
-            // }
-
             close(server_socket);
-        }
+            break;
         case OP_SS_INFO:
-        {
+            operation = "info of path";
             // use ls -l program to get file(actual_path) info
             // scrape size last modified date and name and permissions from it and send it to client
             char command[256];
             snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
-            printf("%s\n", actual_path);
-            FILE *file = popen(command, "r");
+            file = popen(command, "r");
             if (!file)
             {
                 perror("[SELF] Could not open file");
                 ecode = ERR_SYS;
             }
-            path_sock_sendfile(sock_fd, file);
+            ecode = path_sock_sendfile(sock_fd, file);
             if (file)
             {
                 pclose(file);
             }
             break;
-        }
         default:
             /* Invalid OP at this case */
             ecode = ERR_REQ;
             sock_send_ack(sock_fd, &ecode);
             break;
+        }
+        if (ecode == ERR_NONE)
+        {
+            printf("[CLIENT %d] Executed %s '%s'\n", sock_fd, operation, msg->file);
+        }
+        else
+        {
+            printf("[CLIENT %d] Failed to %s '%s': %s\n",
+                   sock_fd, operation, msg->file, errcode_to_str(ecode));
         }
         free(actual_path);
     }
@@ -270,7 +277,6 @@ void *handle_client(void *fd_ptr)
 void *handle_ns(void *ns_fd_ptr)
 {
     int ns_fd = (int)(intptr_t)ns_fd_ptr;
-    printf("[NAMING SERVER] Connected to handle requests now\n");
     while (1)
     {
         MessageFile *msg = (MessageFile *)sock_get(ns_fd);
@@ -280,33 +286,21 @@ void *handle_ns(void *ns_fd_ptr)
         }
 
         ErrCode ecode = ERR_NONE;
+        char *operation = "invalid operation";
         switch (msg->op)
         {
         case OP_NS_CREATE:
+            operation = "create path";
             ecode = sserver_create(msg->file);
             sock_send_ack(ns_fd, &ecode);
-            if (ecode == ERR_NONE)
-            {
-                printf("[SELF] Created path '%s'\n", msg->file);
-            }
-            else
-            {
-                printf("[SELF] Failed to create path '%s'\n", msg->file);
-            }
             break;
         case OP_NS_DELETE:
+            operation = "delete path";
             ecode = sserver_delete(msg->file);
             sock_send_ack(ns_fd, &ecode);
-            if (ecode == ERR_NONE)
-            {
-                printf("[SELF] Deleted path '%s'\n", msg->file);
-            }
-            else
-            {
-                printf("[SELF] Failed to delete path '%s'\n", msg->file);
-            }
             break;
         case OP_NS_COPY:
+            operation = "copy paths";
             int dst_sock = -1;
             FILE *src_file = NULL;
             char *src_path = strchr(msg->file, ':');
@@ -359,19 +353,20 @@ void *handle_ns(void *ns_fd_ptr)
             }
 
             sock_send_ack(ns_fd, &ecode);
-            if (ecode == ERR_NONE)
-            {
-                printf("[SELF] Copied paths '%s'\n", msg->file);
-            }
-            else
-            {
-                printf("[SELF] Failed to copy paths '%s'\n", msg->file);
-            }
             break;
         default:
             /* Invalid OP at this case */
             ecode = ERR_REQ;
             sock_send_ack(ns_fd, &ecode);
+        }
+        if (ecode == ERR_NONE)
+        {
+            printf("[NAMING SERVER] Executed %s '%s'\n", operation, msg->file);
+        }
+        else
+        {
+            printf("[NAMING SERVER] Failed to %s '%s': %s\n",
+                   operation, msg->file, errcode_to_str(ecode));
         }
         free(msg);
     }
@@ -474,7 +469,6 @@ int main(int argc, char *argv[])
             perror("[SELF] Thread creation failed");
             continue;
         }
-        printf("HIYA\n");
         pthread_detach(thread_id);
     }
 

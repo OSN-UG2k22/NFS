@@ -102,9 +102,11 @@ void *handle_client(void *client_socket)
 
         ErrCode ecode = ERR_NONE;
         int sserver_fd = -1;
+        char *operation = "invalid operation";
         switch (msg->op)
         {
         case OP_NS_CREATE:
+            operation = "create path";
             ecode = sserver_random(&sserver_fd);
             if (ecode == ERR_NONE)
             {
@@ -117,17 +119,10 @@ void *handle_client(void *client_socket)
                     ecode = ERR_CONN;
                 }
             }
-            if (ecode != ERR_NONE)
-            {
-                printf("[CLIENT %d] Failed to create path '%s'\n", sock, msg->file);
-            }
-            else
-            {
-                printf("[CLIENT %d] Created path '%s'\n", sock, msg->file);
-            }
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_DELETE:
+            operation = "delete path";
             ecode = sserver_by_path(msg->file, &sserver_fd, NULL);
             if (ecode == ERR_NONE)
             {
@@ -140,17 +135,10 @@ void *handle_client(void *client_socket)
                     ecode = ERR_CONN;
                 }
             }
-            if (ecode != ERR_NONE)
-            {
-                printf("[CLIENT %d] Failed to delete path '%s'\n", sock, msg->file);
-            }
-            else
-            {
-                printf("[CLIENT %d] Deleted path '%s'\n", sock, msg->file);
-            }
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_COPY:
+            operation = "copy paths";
             MessageAddr msg_addr;
             msg_addr.op = OP_NS_REPLY_SS;
             char *tmp = strchr(msg->file, ':');
@@ -187,35 +175,35 @@ void *handle_client(void *client_socket)
                 }
             }
             sock_send_ack(sock, &ecode);
-            if (ecode == ERR_NONE)
-            {
-                printf("[CLIENT %d] Copied paths '%s'\n", sock, msg->file);
-            }
-            else
-            {
-                printf("[CLIENT %d] Failed to copy paths '%s': %s\n",
-                       sock, msg->file, errcode_to_str(ecode));
-            }
             break;
         case OP_NS_GET_SS:
+            operation = "get SS";
             MessageAddr reply_addr;
             reply_addr.op = OP_NS_REPLY_SS;
             ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr);
             sock_send_ack(sock, &ecode);
             if (ecode == ERR_NONE)
             {
-                sock_send(sock, (Message *)&reply_addr);
+                ecode = sock_send(sock, (Message *)&reply_addr) ? ERR_NONE : ERR_CONN;
             }
-            printf("[CLIENT %d] Requested SS for path '%s'\n", sock, msg->file);
             break;
         case OP_NS_LS:
+            operation = "list dir";
             sock_send_ack(sock, &ecode);
-            printf("[CLIENT %d] Listing all files at path '%s'\n", sock, msg->file);
             break;
         default:
             /* Invalid OP at this case */
             ecode = ERR_REQ;
             sock_send_ack(sock, &ecode);
+        }
+        if (ecode == ERR_NONE)
+        {
+            printf("[CLIENT %d] Executed %s '%s'\n", sock, operation, msg->file);
+        }
+        else
+        {
+            printf("[CLIENT %d] Failed to %s '%s': %s\n",
+                   sock, operation, msg->file, errcode_to_str(ecode));
         }
         free(msg);
     }

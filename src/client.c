@@ -33,25 +33,20 @@ int main(int argc, char *argv[])
         printf("- DELETE [path]\n");
         while (1)
         {
+            ErrCode ret = ERR_NONE;
+            MessageFile request;
             char op[16];
             printf("> ");
-            if (scanf("%15s ", op) != 1)
+            if (scanf("%15s %[^\n]", op, request.file) != 2)
             {
-                break;
+                if (feof(stdin) || ferror(stdin))
+                {
+                    break;
+                }
+                ret = ERR_REQ;
+                goto end_loop;
             }
 
-            MessageFile request;
-            if (!fgets(request.file, sizeof(request.file), stdin))
-            {
-                break;
-            }
-            /* Strip newline */
-            size_t arg_len = strlen(request.file);
-            while (arg_len && request.file[arg_len - 1] == '\n')
-            {
-                arg_len--;
-            }
-            request.file[arg_len] = '\0';
             char *arg2 = NULL;
             if (strcasecmp(op, "READ") == 0 || strcasecmp(op, "WRITE") == 0)
             {
@@ -60,6 +55,10 @@ int main(int argc, char *argv[])
                 {
                     arg2[0] = '\0';
                     arg2++;
+                    if (!arg2[0])
+                    {
+                        arg2 = NULL;
+                    }
                 }
             }
 
@@ -84,13 +83,17 @@ int main(int argc, char *argv[])
                 request.op = OP_NS_GET_SS;
             }
 
-            sock_send(sock_fd, (Message *)&request);
+            ret = sock_send(sock_fd, (Message *)&request) ? ERR_NONE : ERR_CONN;
+            if (ret != ERR_NONE)
+            {
+                goto end_loop;
+            }
             if (request.op == OP_NS_LS)
             {
                 // write logic here
                 continue;
             }
-            ErrCode ret = sock_get_ack(sock_fd);
+            ret = sock_get_ack(sock_fd);
             MessageAddr *ss_addr = NULL;
             if (ret == ERR_NONE && request.op == OP_NS_GET_SS)
             {
@@ -109,25 +112,11 @@ int main(int argc, char *argv[])
                     ret = ERR_CONN;
                 }
             }
-            if (ret == ERR_NONE)
-            {
-                printf("[SELF] Operation succeeded\n");
-            }
-            else
-            {
-                printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
-                continue;
-            }
 
-            if (ss_addr)
-            {
-                printf("[SELF] Received Storage Server address: ");
-                ipv4_print_addr(&ss_addr->addr, NULL);
-            }
-            else
+            if (!ss_addr)
             {
                 /* For create/delete/copy, we are done here */
-                continue;
+                goto end_loop;
             }
 
             if (strcasecmp(op, "READ") == 0)
@@ -139,10 +128,9 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    ErrCode ret = ERR_NONE;
                     int sock_server = sock_connect_addr(&ss_addr->addr);
                     request.op = OP_SS_READ;
-                    path_sock_getfile(sock_server, (Message *)&request, outfile);
+                    ret = path_sock_getfile(sock_server, (Message *)&request, outfile);
                     if (outfile != stdout)
                     {
                         fclose(outfile);
@@ -159,7 +147,6 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    ErrCode ret = ERR_NONE;
                     int sock_server = sock_connect_addr(&ss_addr->addr);
                     request.op = OP_SS_WRITE;
                     if (!sock_send(sock_server, (Message *)&request))
@@ -209,11 +196,10 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    ErrCode ret = ERR_NONE;
                     int sock_server = sock_connect_addr(&ss_addr->addr);
                     request.op = OP_SS_INFO;
                     printf("%s ", request.file);
-                    path_sock_getfile(sock_server, (Message *)&request, outfile);
+                    ret = path_sock_getfile(sock_server, (Message *)&request, outfile);
                     if (outfile != stdout)
                     {
                         fclose(outfile);
@@ -223,9 +209,18 @@ int main(int argc, char *argv[])
             }
             else
             {
-                printf("Invalid Operation!\n");
+                ret = ERR_REQ;
             }
-            // #endif
+        end_loop:
+            if (ret == ERR_NONE)
+            {
+                printf("[SELF] Operation succeeded\n");
+            }
+            else
+            {
+                printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
+                continue;
+            }
         }
     }
 

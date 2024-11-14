@@ -96,14 +96,6 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
     }
 end:
     sock_send_ack(sock, &ret);
-    if (ret == ERR_NONE)
-    {
-        printf("[SELF] Successfully sent file\n");
-    }
-    else
-    {
-        printf("[SELF] Failed to send file\n");
-    }
     return ret;
 }
 
@@ -130,14 +122,6 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
         }
         MessageChunk *read_chunk = (MessageChunk *)read_data;
         fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
-    }
-    if (ret == ERR_NONE)
-    {
-        printf("[SELF] Operation succeeded\n");
-    }
-    else
-    {
-        printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
     }
     return ret;
 }
