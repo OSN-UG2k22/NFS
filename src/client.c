@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
             MessageFile request;
             char op[16];
             printf("> ");
-            if (scanf("%15s %[^\n]", op, request.file) != 2)
+            if (scanf("%15s ", op) != 1)
             {
                 if (feof(stdin) || ferror(stdin))
                 {
@@ -46,6 +46,18 @@ int main(int argc, char *argv[])
                 ret = ERR_REQ;
                 goto end_loop;
             }
+
+            if (!fgets(request.file, sizeof(request.file), stdin))
+            {
+                break;
+            }
+            /* Strip newline */
+            size_t arg_len = strlen(request.file);
+            while (arg_len && request.file[arg_len - 1] == '\n')
+            {
+                arg_len--;
+            }
+            request.file[arg_len] = '\0';
 
             char *arg2 = NULL;
             if (strcasecmp(op, "READ") == 0 || strcasecmp(op, "WRITE") == 0)
