@@ -36,10 +36,12 @@ void stream_music(char* ip, uint16_t port)
     snprintf(media_url, sizeof(media_url), "tcp://%s:%hu", ip, port);
 
     const char *args[] = {
-        "--verbose=2",
-        "--no-video",  // Disable video output for audio files
-        "--aout=pulse"  // Use PulseAudio output (change if needed)
+    "--verbose=0",
+    "--no-video",
+    "--aout=alsa",
+    "--network-caching=1000"  // Increase the network cache to 1000ms
     };
+
  
     /* Load the VLC engine */
     inst = libvlc_new(sizeof(args) / sizeof(*args), args);
