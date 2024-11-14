@@ -1,4 +1,5 @@
 #include "common.h"
+#include "try-trie/wrapper_opt.h"
 
 pthread_mutex_t sservers_lock = PTHREAD_MUTEX_INITIALIZER;
 SServerInfo sservers[NS_MAX_CONN] = {0};
@@ -189,6 +190,7 @@ void *handle_client(void *client_socket)
             break;
         case OP_NS_LS:
             operation = "list dir";
+            ls(msg->file);
             sock_send_ack(sock, &ecode);
             break;
         default:
@@ -246,6 +248,7 @@ void *handle_ss(void *sserver_void)
             free(msg);
             break;
         }
+        create(sserver->id, msg->file);
         printf("[STORAGE SERVER %d] Has file '%s'\n", sserver->id, msg->file);
         free(msg);
     }

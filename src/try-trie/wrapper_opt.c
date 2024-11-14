@@ -1,9 +1,7 @@
-#include "trie.h"
-#include "lru_cache.h"
-#include "../common.h"
+#include "wrapper_opt.h"
 
-extern trienode *__global_trie;
-extern LRU_Cache *__global_lru;
+trienode *__global_trie;
+LRU_Cache *__global_lru;
 
 int create(int main_server, char *str) // takes main server and string path inserts in trie updates lru
 {

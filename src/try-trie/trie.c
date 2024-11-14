@@ -123,7 +123,7 @@ int delete_from_trie(trienode *root, char *str)
     }
 }
 
-int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str)
+int find_all(trienode *root, int *arr, int ns_max_conn, char *str)
 {
     if (root == NULL)
     {
@@ -138,17 +138,17 @@ int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str)
         }
         root = root->child[(unsigned char)str[i]];
     }
-    mark_subtree(root, arr, NS_MAX_CONN);
-    return 1;
+    mark_subtree(root, arr, ns_max_conn);
+    return ns_max_conn;
 }
 
-void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN)
+void mark_subtree(trienode *node, int *arr, int ns_max_conn)
 {
     if (node == NULL)
     {
         return;
     }
-    if (node->hashind != -1 && node->hashind < NS_MAX_CONN && node->hashind >= 0)
+    if (node->hashind != -1 && node->hashind < ns_max_conn && node->hashind >= 0)
     {
         arr[node->hashind] = 1;
     }
@@ -156,7 +156,7 @@ void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN)
     {
         if (node->child[i] != NULL)
         {
-            mark_subtree(node->child[i], arr, NS_MAX_CONN);
+            mark_subtree(node->child[i], arr, ns_max_conn);
         }
     }
 }

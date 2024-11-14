@@ -19,8 +19,8 @@ typedef struct trienode
 trienode *newnode();                                    // done
 int trieinsert(trienode *temp, char *str, int hashind); // returns -1 if duplicate, if success returns hashind
 int find_in_trie(trienode *root, char *str);
-int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str);
-void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN);
+int find_all(trienode *root, int *arr, int ns_max_conn, char *str);
+void mark_subtree(trienode *node, int *arr, int ns_max_conn);
 
 int delete_from_trie(trienode *root, char *str);
 
