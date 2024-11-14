@@ -211,6 +211,7 @@ int main(int argc, char *argv[])
             {
                 ret = ERR_REQ;
             }
+            free(ss_addr);
         end_loop:
             if (ret == ERR_NONE)
             {

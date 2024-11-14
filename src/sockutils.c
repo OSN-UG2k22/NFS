@@ -3,7 +3,8 @@
 /* Returns 1 on success, 0 on failure */
 int sock_send(int sock, Message *message)
 {
-    if (sock < 0) {
+    if (sock < 0)
+    {
         return 0;
     }
     switch (message->op)
@@ -52,6 +53,10 @@ int sock_send(int sock, Message *message)
 
 Message *sock_get(int sock)
 {
+    if (sock < 0)
+    {
+        return 0;
+    }
     Message *ret = malloc(sizeof(Message));
     if (!ret)
     {
@@ -59,6 +64,7 @@ Message *sock_get(int sock)
     }
     if (read(sock, ret, sizeof(Message)) != sizeof(Message))
     {
+        free(ret);
         return 0;
     }
     Message *new_ret = realloc(ret, sizeof(Message) + ret->size);

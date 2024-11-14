@@ -83,19 +83,19 @@ ErrCode sserver_create(char *input_file_path)
         {
             if (errno != EEXIST)
             {
-                *p = '/';
+                free(file_path);
                 return ERR_SYS;
             }
         }
         *p = '/';
     }
     FILE *file = fopen(file_path, "w");
+    free(file_path);
     if (!file)
     {
         return ERR_SYS;
     }
 
-    free(file_path);
     fclose(file);
     return ERR_NONE;
 }
@@ -267,6 +267,7 @@ void *handle_client(void *fd_ptr)
                    sock_fd, operation, msg->file, errcode_to_str(ecode));
         }
         free(actual_path);
+        free(msg);
     }
 
     printf("[CLIENT %d] Disconnected\n", sock_fd);
@@ -323,11 +324,14 @@ void *handle_ns(void *ns_fd_ptr)
                     }
                 }
             }
-            MessageAddr *reply_addr = NULL;
             if (ecode == ERR_NONE)
             {
-                reply_addr = (MessageAddr *)sock_get(ns_fd);
-                if (reply_addr->op != OP_NS_REPLY_SS)
+                MessageAddr *reply_addr = (MessageAddr *)sock_get(ns_fd);
+                if (!reply_addr)
+                {
+                    ecode = ERR_CONN;
+                }
+                else if (reply_addr->op != OP_NS_REPLY_SS)
                 {
                     ecode = ERR_SYNC;
                 }
@@ -339,6 +343,7 @@ void *handle_ns(void *ns_fd_ptr)
                         ecode = ERR_CONN;
                     }
                 }
+                free(reply_addr);
             }
             if (ecode == ERR_NONE)
             {

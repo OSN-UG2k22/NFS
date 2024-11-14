@@ -122,6 +122,7 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
         }
         MessageChunk *read_chunk = (MessageChunk *)read_data;
         fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
+        free(read_data);
     }
     return ret;
 }
