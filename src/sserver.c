@@ -209,6 +209,7 @@ void *handle_client(void *fd_ptr)
             MessageInt port_msg;
             port_msg.op = OP_ACK;
             port_msg.info = port;
+            printf("dEBUG1\n");
             ecode = sock_send(sock_fd, (Message *)&port_msg);
             if (!ecode)
             {
@@ -220,6 +221,7 @@ void *handle_client(void *fd_ptr)
             // while (1) {
             struct sockaddr_in client_addr;
             socklen_t client_len = sizeof(client_addr);
+            printf("dEBUG2\n");
             int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
 
             if (client_socket < 0)

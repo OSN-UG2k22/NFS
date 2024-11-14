@@ -5,33 +5,46 @@
 int stream_file(int client_socket, const char *filename)
 {
     char buffer[BUFFER_SIZE];
-    int file_fd = open(filename, O_RDONLY);
+    // int file_fd = open(filename, O_RDONLY);
+    // do it with fopen
+    FILE *file = fopen(filename, "r");
 
-    if (file_fd < 0)
+    if (!file)
     {
         perror("Failed to open file");
         return -1;
     }
 
     ssize_t bytes_read;
-    while ((bytes_read = read(file_fd, buffer, BUFFER_SIZE)) > 0)
-    {
+    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE,file)) > 0)
+    {   printf("Debug3\n");
         char *tmp_buffer = buffer;
         while (bytes_read)
         {
+            struct pollfd pfds;
+            pfds.fd = client_socket;
+            pfds.events = POLLOUT;
+            int numevents = poll(&pfds,1,-1);
+            if (numevents != 1)
+            {
+                fclose(file);
+                perror("Poll failed\n");
+                break;
+            }
             ssize_t bytes_sent = send(client_socket, tmp_buffer, bytes_read, 0);
             if (bytes_sent < 0)
             {
                 perror("Failed to send data");
-                close(file_fd);
+                fclose(file);
                 return -1;
             }
             tmp_buffer += bytes_sent;
             bytes_read -= bytes_sent;
+            printf("Bytes read %ld\n",bytes_read);
         }
     }
 
-    close(file_fd);
+    fclose(file);
     return 0;
 }
 

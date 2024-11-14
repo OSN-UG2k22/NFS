@@ -93,6 +93,7 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
             ret = ERR_CONN;
             goto end;
         }
+        ret = sock_get_ack(sock);
     }
 end:
     sock_send_ack(sock, &ret);
@@ -101,7 +102,7 @@ end:
 
 ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
 {
-    int ret = outfile ? ERR_NONE : ERR_SYS;
+    ErrCode ret = outfile ? ERR_NONE : ERR_SYS;
     if (!sock_send(sock, msg_header))
     {
         ret = ERR_CONN;
@@ -123,6 +124,7 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
         MessageChunk *read_chunk = (MessageChunk *)read_data;
         fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
         free(read_data);
+        sock_send_ack(sock, &ret);
     }
     return ret;
 }
