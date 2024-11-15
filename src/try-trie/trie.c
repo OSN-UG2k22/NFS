@@ -215,10 +215,10 @@ void print_all_subtree(trienode *node, char *path, int level)
 void print_all_childs(trienode *root, char *str)
 {
     int len = (int)strlen(str);
-    if (str[len-1] == '/')
-    {
-        len--;
-    }
+    // if (str[len-1] == '/')
+    // {
+    //     len--;
+    // }
     
     for (int i = 0; i < len; i++)
     {

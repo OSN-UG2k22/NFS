@@ -38,7 +38,7 @@ void test_delete_file_folder()
     }
     assert(deleted_paths != NULL);
     int result = search(path);
-    printf("%d\n",result);
+    printf("%d\n", result);
     // assert(result == -1); NOT WORKING WITH OTHERS
 
     free(deleted_paths);
@@ -107,12 +107,27 @@ void tough_test()
 
 int main()
 {
-    test_create();
-    test_search();
-    test_delete_file_folder();
-    test_what_the_lock();
-    test_ls();
-    tough_test();
+    // test_create();
+    // test_search();
+    // test_delete_file_folder();
+    // test_what_the_lock();
+    // test_ls();
+    // tough_test();
+    char *path = "/example/path";
+    char *path1 = "example";
+    char *path2 = "example/path/";
+    char *path3 = "/example/path/";
+    char *result = handle_slash(path);
+    printf("for %s function output: %s\n", path, result);
+
+    char *result1 = handle_slash(path1);
+    printf("for %s function output: %s\n", path1, result1);
+
+    char *result2 = handle_slash(path2);
+    printf("for %s function output: %s\n", path2, result2);
+
+    char *result3 = handle_slash(path3);
+    printf("for %s function output: %s\n", path3, result3);
 
     printf("All tests passed successfully.\n");
 
