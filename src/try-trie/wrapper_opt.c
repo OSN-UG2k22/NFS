@@ -1,7 +1,7 @@
 #include "wrapper_opt.h"
 
-trienode *__global_trie;
-LRU_Cache *__global_lru;
+trienode *__global_trie = NULL;
+LRU_Cache *__global_lru = NULL;
 
 char *handle_slash(char *str)
 {
@@ -21,7 +21,8 @@ char *handle_slash(char *str)
     {
         newstr[j++] = '\0';
     }
-    else{
+    else
+    {
         newstr[j++] = str[len - 1];
     }
     newstr[j] = '\0';
@@ -71,7 +72,7 @@ int search(char *str) // searches in lru first, if not found then in trie return
     {
         return -1;
     }
-    
+
     // int x = find_in_cache(__global_lru, str);
     char *newstr = handle_slash(str);
     int x = find_and_update(__global_lru, newstr);
@@ -94,7 +95,7 @@ int *delete_file_folder(char *str) // first deletes from LRU, then deletes from 
     {
         return NULL;
     }
-    
+
     char *newstr = handle_slash(str);
     int *arr = calloc(NS_MAX_CONN, sizeof(int));
     if (arr == NULL)
@@ -122,18 +123,18 @@ pthread_mutex_t *what_the_lock(char *str) // returns a pointer to lock for that 
     {
         return NULL;
     }
-    
+
     char *newstr = handle_slash(str);
     return lock_in_trie(__global_trie, newstr);
 }
 
-int ls(char *str, FILE* fp) // lists all files and subfiles
+int ls(char *str, FILE *fp) // lists all files and subfiles
 {
     if (!__global_trie)
     {
         return 0;
     }
-    
+
     char *newstr = handle_slash(str);
     int result = print_all_childs(__global_trie, newstr, fp);
     return result;

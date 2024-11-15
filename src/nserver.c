@@ -44,18 +44,43 @@ end:
     return ret;
 }
 
-ErrCode sserver_random(int *sock_fd)
+ErrCode sserver_random(char *path, int *sock_fd)
 {
-    int ret = ERR_NONE;
+    int ret = ERR_SS;
     pthread_mutex_lock(&sservers_lock);
-    /* TODO: actual implementation */
-    if (!sservers[0].is_used)
+
+    /* First try random */
+    int rand_id;
+    for (int try = 0; try < NS_MAX_CONN; try++)
     {
-        ret = ERR_SS;
+        rand_id = rand() % sservers_count;
+        if (sservers[rand_id].is_used)
+        {
+            ret = ERR_NONE;
+            break;
+        }
     }
-    else
+
+    /* If random fails try all SS */
+    if (ret != ERR_NONE)
     {
-        *sock_fd = sservers[0].sock_fd;
+        for (rand_id = 0; rand_id < NS_MAX_CONN; rand_id++)
+        {
+            if (sservers[rand_id].is_used)
+            {
+                ret = ERR_NONE;
+                break;
+            }
+        }
+    }
+
+    if (ret == ERR_NONE)
+    {
+        ret = (create(rand_id, path) < 0) ? ERR_EXISTS : ERR_NONE;
+        if (ret == ERR_NONE)
+        {
+            *sock_fd = sservers[rand_id].sock_fd;
+        }
     }
     pthread_mutex_unlock(&sservers_lock);
     return ret;
@@ -70,8 +95,8 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
     }
 
     pthread_mutex_lock(&sservers_lock);
-    /* TODO: actual implementation */
-    if (!sservers[0].is_used)
+    int sserver_fd = search(path);
+    if (sserver_fd < 0 || sserver_fd >= NS_MAX_CONN || !sservers[sserver_fd].is_used)
     {
         ret = ERR_SS;
     }
@@ -79,11 +104,11 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
     {
         if (addr)
         {
-            *addr = sservers[0].addr;
+            *addr = sservers[sserver_fd].addr;
         }
         if (sock_fd)
         {
-            *sock_fd = sservers[0].sock_fd;
+            *sock_fd = sservers[sserver_fd].sock_fd;
         }
     }
     pthread_mutex_unlock(&sservers_lock);
@@ -108,7 +133,7 @@ void *handle_client(void *client_socket)
         {
         case OP_NS_CREATE:
             operation = "create path";
-            ecode = sserver_random(&sserver_fd);
+            ecode = sserver_random(msg->file, &sserver_fd);
             if (ecode == ERR_NONE)
             {
                 if (sock_send(sserver_fd, (Message *)msg))
@@ -119,10 +144,10 @@ void *handle_client(void *client_socket)
                 {
                     ecode = ERR_CONN;
                 }
-            }
-            if (ecode != ERR_NONE)
-            {
-                // create()
+                if (ecode != ERR_NONE)
+                {
+                    free(delete_file_folder(msg->file));
+                }
             }
             sock_send_ack(sock, &ecode);
             break;
