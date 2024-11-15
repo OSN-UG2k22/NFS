@@ -123,7 +123,7 @@ int delete_from_trie(trienode *root, char *str)
     }
 }
 
-int find_all(trienode *root, int *arr, int ns_max_conn, char *str)
+int find_all(trienode *root, int *arr, int NS_MAX_CONN, char *str)
 {
     if (root == NULL)
     {
@@ -138,17 +138,17 @@ int find_all(trienode *root, int *arr, int ns_max_conn, char *str)
         }
         root = root->child[(unsigned char)str[i]];
     }
-    mark_subtree(root, arr, ns_max_conn);
-    return ns_max_conn;
+    mark_subtree(root, arr, NS_MAX_CONN);
+    return 1;
 }
 
-void mark_subtree(trienode *node, int *arr, int ns_max_conn)
+void mark_subtree(trienode *node, int *arr, int NS_MAX_CONN)
 {
     if (node == NULL)
     {
         return;
     }
-    if (node->hashind != -1 && node->hashind < ns_max_conn && node->hashind >= 0)
+    if (node->hashind != -1 && node->hashind < NS_MAX_CONN && node->hashind >= 0)
     {
         arr[node->hashind] = 1;
     }
@@ -156,7 +156,7 @@ void mark_subtree(trienode *node, int *arr, int ns_max_conn)
     {
         if (node->child[i] != NULL)
         {
-            mark_subtree(node->child[i], arr, ns_max_conn);
+            mark_subtree(node->child[i], arr, NS_MAX_CONN);
         }
     }
 }
@@ -188,7 +188,7 @@ void print_all_subtree(trienode *node, char *path, int level)
         return;
     }
 
-    if (node->hashind != -1)
+    if (node->hashind != -1 || node->child[(int)'/'] != NULL)
     {
         path[level] = '\0';
         // printf("%s (hashind: %d)\n", path, node->hashind);
@@ -214,9 +214,13 @@ void print_all_subtree(trienode *node, char *path, int level)
 
 void print_all_childs(trienode *root, char *str)
 {
-    // printf("IN print_all_childs function\n");
-
-    for (int i = 0; i < (int)strlen(str); i++)
+    int len = (int)strlen(str);
+    if (str[len-1] == '/')
+    {
+        len--;
+    }
+    
+    for (int i = 0; i < len; i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
         {
@@ -226,22 +230,16 @@ void print_all_childs(trienode *root, char *str)
         root = root->child[(unsigned char)str[i]];
     }
     char path[256];
-    for (int i = 0; i < 256; i++)
-    {
-        char c = (char)i;
-        if (c == '/')
-        {
-            continue;
-            // printf("%s\n", str);
-            // return;
-        }
-        if (root->child[i])
-            print_all_childs(root->child[i], path);
-    }
-
     if (root->child[(int)'/'] == NULL)
     {
-        // printf("%s\n", str);
+        if (root->hashind != -1)
+        {
+            printf("%s\n", str);
+        }
+        else
+        {
+            printf("Directory not found\n");
+        }
         return;
     }
     root = root->child[(int)'/'];
