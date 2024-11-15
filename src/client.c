@@ -94,16 +94,16 @@ int main(int argc, char *argv[])
             {
                 request.op = OP_NS_GET_SS;
             }
+            if (request.op == OP_NS_LS)
+            {
+                ret = path_sock_getfile(sock_fd, (Message *)&request, stdout);
+                goto end_loop;
+            }
 
             ret = sock_send(sock_fd, (Message *)&request) ? ERR_NONE : ERR_CONN;
             if (ret != ERR_NONE)
             {
                 goto end_loop;
-            }
-            if (request.op == OP_NS_LS)
-            {
-                // write logic here
-                continue;
             }
             ret = sock_get_ack(sock_fd);
             MessageAddr *ss_addr = NULL;

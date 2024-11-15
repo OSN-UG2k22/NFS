@@ -229,7 +229,7 @@ int print_all_childs(trienode *root, char *str, FILE *fp)
     {
         if (root->hashind != -1)
         {
-            printf("%s\n", str);
+            fprintf(fp, "%s\n", str);
         }
         else
         {

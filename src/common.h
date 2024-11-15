@@ -71,7 +71,7 @@ static inline char *errcode_to_str(ErrCode ecode)
     case ERR_REQ:
         return "Invalid request";
     case ERR_SS:
-        return "Could not fetch storage server";
+        return "Path does not exist (or could not fetch storage server)";
     case ERR_SYNC:
         return "Synchronization issue, unexpected type of message recieved";
     case ERR_SYS:

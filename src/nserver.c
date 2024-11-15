@@ -120,6 +120,10 @@ void *handle_client(void *client_socket)
                     ecode = ERR_CONN;
                 }
             }
+            if (ecode != ERR_NONE)
+            {
+                // create()
+            }
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_DELETE:
@@ -190,8 +194,27 @@ void *handle_client(void *client_socket)
             break;
         case OP_NS_LS:
             operation = "list dir";
-            ls(msg->file);
-            sock_send_ack(sock, &ecode);
+            FILE *temp = tmpfile();
+            if (!temp)
+            {
+                perror("[SELF] Could not create temporary file for processing");
+                ecode = ERR_SYS;
+                sock_send_ack(sock, &ecode);
+            }
+            else
+            {
+                ecode = ls(msg->file, temp) ? ERR_NONE : ERR_SS;
+                if (ecode == ERR_NONE)
+                {
+                    fseek(temp, 0, SEEK_SET);
+                    ecode = path_sock_sendfile(sock, temp);
+                }
+                else
+                {
+                    sock_send_ack(sock, &ecode);
+                }
+                fclose(temp);
+            }
             break;
         default:
             /* Invalid OP at this case */

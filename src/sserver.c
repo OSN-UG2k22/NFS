@@ -3,12 +3,19 @@
 char *storage_path = NULL;
 
 /* Returns 1 on success, 0 on error */
-int _sserver_send_files(int sock, MessageFile *cur)
+int _sserver_send_files(int sock, char *parent, MessageFile *cur)
 {
     struct dirent *entry;
-    DIR *dir = opendir(cur->file);
+    char *actual_path = path_concat(parent, cur->file);
+    if (!actual_path)
+    {
+        return 0;
+    }
+
+    DIR *dir = opendir(actual_path);
     if (!dir)
     {
+        free(actual_path);
         switch (errno)
         {
         case EACCES:
@@ -25,6 +32,7 @@ int _sserver_send_files(int sock, MessageFile *cur)
             return 0;
         }
     }
+    free(actual_path);
 
     int ret = 1;
     while ((entry = readdir(dir)) != NULL)
@@ -41,7 +49,7 @@ int _sserver_send_files(int sock, MessageFile *cur)
             continue;
         }
 
-        if (!_sserver_send_files(sock, &new))
+        if (!_sserver_send_files(sock, parent, &new))
         {
             ret = 0;
             break;
@@ -52,11 +60,10 @@ int _sserver_send_files(int sock, MessageFile *cur)
 }
 
 /* Returns 1 on success, 0 on error */
-int sserver_send_files(int sock, const char *path)
+int sserver_send_files(int sock, char *path)
 {
-    MessageFile cur;
-    strcpy(cur.file, path);
-    int ret = _sserver_send_files(sock, &cur);
+    MessageFile cur = {0};
+    int ret = _sserver_send_files(sock, path, &cur);
 
     /* Send empty file to signal end */
     cur.op = OP_NS_INIT_FILE;
