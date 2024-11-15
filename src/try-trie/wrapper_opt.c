@@ -67,6 +67,11 @@ int create(int main_server, char *str) // takes main server and string path inse
 
 int search(char *str) // searches in lru first, if not found then in trie returns -1 if not found in both
 {
+    if (!__global_trie)
+    {
+        return -1;
+    }
+    
     // int x = find_in_cache(__global_lru, str);
     char *newstr = handle_slash(str);
     int x = find_and_update(__global_lru, newstr);
@@ -85,6 +90,11 @@ int search(char *str) // searches in lru first, if not found then in trie return
 
 int *delete_file_folder(char *str) // first deletes from LRU, then deletes from trie
 {
+    if (!__global_trie)
+    {
+        return NULL;
+    }
+    
     char *newstr = handle_slash(str);
     int *arr = calloc(NS_MAX_CONN, sizeof(int));
     if (arr == NULL)
@@ -108,12 +118,22 @@ int *delete_file_folder(char *str) // first deletes from LRU, then deletes from 
 
 pthread_mutex_t *what_the_lock(char *str) // returns a pointer to lock for that file
 {
+    if (!__global_trie)
+    {
+        return NULL;
+    }
+    
     char *newstr = handle_slash(str);
     return lock_in_trie(__global_trie, newstr);
 }
 
 int ls(char *str, FILE* fp) // lists all files and subfiles
 {
+    if (!__global_trie)
+    {
+        return 0;
+    }
+    
     char *newstr = handle_slash(str);
     int result = print_all_childs(__global_trie, newstr, fp);
     return result;
