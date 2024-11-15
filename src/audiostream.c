@@ -2,50 +2,77 @@
 
 #define BUFFER_SIZE 1024
 
-int stream_file(int client_socket, const char *filename)
+ErrCode stream_file(int client_socket, const char *filename)
 {
+    int fd = -1;
+    ErrCode ret = ERR_NONE;
     char buffer[BUFFER_SIZE];
     // int file_fd = open(filename, O_RDONLY);
     // do it with fopen
     FILE *file = fopen(filename, "r");
-
     if (!file)
     {
-        perror("Failed to open file");
-        return -1;
+        perror("[SELF] Failed to open file");
+        return ERR_SYS;
+    }
+
+    struct flock lock = {0};
+    if (file)
+    {
+        fd = fileno(file);
+        if (fd == -1)
+        {
+            ret = ERR_SYS;
+            goto end;
+        }
+        lock.l_type = F_RDLCK;
+        lock.l_whence = SEEK_SET;
+        if (fcntl(fd, F_SETLK, &lock) == -1)
+        {
+            fd = -1;
+            ret = ERR_LOCK;
+            goto end;
+        }
     }
 
     ssize_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE,file)) > 0)
-    {   printf("Debug3\n");
+    while ((bytes_read = fread(buffer, 1, BUFFER_SIZE, file)) > 0)
+    {
         char *tmp_buffer = buffer;
         while (bytes_read)
         {
             struct pollfd pfds;
             pfds.fd = client_socket;
             pfds.events = POLLOUT;
-            int numevents = poll(&pfds,1,-1);
+            int numevents = poll(&pfds, 1, -1);
             if (numevents != 1)
             {
-                fclose(file);
-                perror("Poll failed\n");
-                break;
+                ret = ERR_CONN;
+                goto end;
             }
             ssize_t bytes_sent = send(client_socket, tmp_buffer, bytes_read, 0);
             if (bytes_sent < 0)
             {
-                perror("Failed to send data");
-                fclose(file);
-                return -1;
+                ret = ERR_CONN;
+                goto end;
             }
             tmp_buffer += bytes_sent;
             bytes_read -= bytes_sent;
-            printf("Bytes read %ld\n",bytes_read);
         }
     }
 
+end:
+    if (fd >= 0)
+    {
+        lock.l_type = F_UNLCK;
+        if (fcntl(fd, F_SETLK, &lock) == -1)
+        {
+            perror("[SELF] Error unlocking file");
+            ret = ERR_LOCK;
+        }
+    }
     fclose(file);
-    return 0;
+    return ret;
 }
 
 void stream_music(char *ip, uint16_t port)

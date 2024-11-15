@@ -59,6 +59,7 @@ typedef enum _ErrCode
     ERR_SYNC,   /* Synchronisation issue, invalid type of message recieved */
     ERR_SYS,    /* Some system error when processing the request */
     ERR_EXISTS, /* Path already exists */
+    ERR_LOCK,   /* Operation locked due to pending operation */
 } ErrCode;
 
 static inline char *errcode_to_str(ErrCode ecode)
@@ -79,6 +80,8 @@ static inline char *errcode_to_str(ErrCode ecode)
         return "Some system error on storage server";
     case ERR_EXISTS:
         return "Path already exists";
+    case ERR_LOCK:
+        return "Operation rejected (locked) due to another pending operation";
     }
     return "Invalid error code";
 }
@@ -145,7 +148,7 @@ void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
 void stream_music(char *ip, uint16_t port);
-int stream_file(int client_socket, const char *filename);
+ErrCode stream_file(int client_socket, const char *filename);
 /* Path utils */
 
 #define SS_METADATA ".ss_metadata_hidden"
