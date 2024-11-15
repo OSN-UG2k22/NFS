@@ -112,10 +112,10 @@ pthread_mutex_t *what_the_lock(char *str) // returns a pointer to lock for that 
     return lock_in_trie(__global_trie, newstr);
 }
 
-void ls(char *str) // lists all files and subfiles
+int ls(char *str, FILE* fp) // lists all files and subfiles
 {
     char *newstr = handle_slash(str);
-    print_all_childs(__global_trie, newstr);
-    return;
+    int result = print_all_childs(__global_trie, newstr, fp);
+    return result;
 }
 // void ls(char* str); //

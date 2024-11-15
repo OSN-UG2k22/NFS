@@ -29,6 +29,6 @@ void initialize_trie(trienode **root);
 void debug_print_trie(trienode *root);
 void debug_print(trienode *root, char *str, int level);
 pthread_mutex_t *lock_in_trie(trienode *root, char *str);
-void print_all_childs(trienode *root, char *str);
+int print_all_childs(trienode *root, char *str, FILE *fp);
 
 #endif

@@ -181,7 +181,7 @@ pthread_mutex_t *lock_in_trie(trienode *root, char *str)
     }
 }
 
-void print_all_subtree(trienode *node, char *path, int level)
+void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
 {
     if (node == NULL)
     {
@@ -192,7 +192,7 @@ void print_all_subtree(trienode *node, char *path, int level)
     {
         path[level] = '\0';
         // printf("%s (hashind: %d)\n", path, node->hashind);
-        printf("%s\n", path);
+        fprintf(fp, "%s\n", path);
     }
 
     for (int i = 0; i < 256; i++)
@@ -207,25 +207,20 @@ void print_all_subtree(trienode *node, char *path, int level)
         if (node->child[i] != NULL)
         {
             path[level] = (char)i; // Append the character to the current path
-            print_all_subtree(node->child[i], path, level + 1);
+            print_all_subtree(node->child[i], path, level + 1, fp);
         }
     }
 }
 
-void print_all_childs(trienode *root, char *str)
+int print_all_childs(trienode *root, char *str, FILE *fp)
 {
     int len = (int)strlen(str);
-    // if (str[len-1] == '/')
-    // {
-    //     len--;
-    // }
-    
+
     for (int i = 0; i < len; i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
         {
-            printf("Directory not found\n");
-            return;
+            return 0;
         }
         root = root->child[(unsigned char)str[i]];
     }
@@ -238,11 +233,12 @@ void print_all_childs(trienode *root, char *str)
         }
         else
         {
-            printf("Directory not found\n");
+            return 0;
         }
-        return;
+        return 1;
     }
     root = root->child[(int)'/'];
 
-    print_all_subtree(root, path, 0);
+    print_all_subtree(root, path, 0, fp);
+    return 1;
 }
