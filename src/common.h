@@ -170,6 +170,7 @@ ErrCode stream_file(int client_socket, const char *filename);
 
 char *path_remove_prefix(char *self, char *op);
 char *path_concat(char *first, char *second);
+void path_norm(char *path, int *size);
 ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite);
 ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **buffer, int *buffer_size);
 

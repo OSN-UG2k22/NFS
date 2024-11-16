@@ -23,7 +23,8 @@ int sock_send(int sock, Message *message)
     case OP_SS_STREAM:
     case OP_NS_GET_SS:
     case OP_NS_GET_SS_FORCE:
-        message->size = strlen(((MessageFile *)message)->file) + 1;
+        path_norm(((MessageFile *)message)->file, &message->size);
+        message->size++;
         break;
     case OP_NS_INIT_SS:
     case OP_SIZE:
@@ -79,6 +80,24 @@ Message *sock_get(int sock)
     {
         free(new_ret);
         return 0;
+    }
+    switch (new_ret->op)
+    {
+    case OP_NS_COPY:
+    case OP_NS_INIT_FILE:
+    case OP_NS_CREATE:
+    case OP_NS_DELETE:
+    case OP_NS_LS:
+    case OP_SS_READ:
+    case OP_SS_WRITE:
+    case OP_SS_INFO:
+    case OP_SS_STREAM:
+    case OP_NS_GET_SS:
+    case OP_NS_GET_SS_FORCE:
+        path_norm(((MessageFile *)new_ret)->file, NULL);
+        break;
+    default:
+        break;
     }
     return new_ret;
 }

@@ -249,3 +249,68 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
     sock_send_ack(sock, &ret);
     return ret;
 }
+
+/* Normalize a path, dealing with ., .. and repeated / */
+void path_norm(char *path, int *size)
+{
+    int length = strlen(path);
+    int write = 0;
+    int read = 0;
+    while (read < length)
+    {
+        while (path[read] == '/' && read < length)
+        {
+            read++;
+        }
+        int name = read;
+        while (read < length && path[read] != '/')
+        {
+            read++;
+        }
+
+        int name_len = read - name;
+        if (name_len == 0 || (name_len == 1 && path[name] == '.'))
+        {
+            continue;
+        }
+
+        if (name_len == 2 && path[name] == '.' && path[name + 1] == '.')
+        {
+            if (write > 0)
+            {
+                write--;
+                while (write > 0 && path[write - 1] != '/')
+                {
+                    write--;
+                }
+            }
+            continue;
+        }
+        if (write > 0 && path[write - 1] != '/')
+        {
+            path[write++] = '/';
+        }
+        for (int i = 0; i < name_len; i++)
+        {
+            path[write++] = path[name + i];
+        }
+    }
+
+    if (write == 0)
+    {
+        path[write++] = '/';
+    }
+    else
+    {
+        while (write > 0 && path[write - 1] == '/')
+        {
+            write--;
+        }
+    }
+
+    if (size)
+    {
+        *size = write;
+    }
+    path[write] = '\0';
+}
