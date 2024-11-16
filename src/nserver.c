@@ -44,10 +44,9 @@ end:
     return ret;
 }
 
-ErrCode sserver_random(char *path, int *sock_fd)
+ErrCode _sserver_random(char *path, int *sserver_id)
 {
     int ret = ERR_SS;
-    pthread_mutex_lock(&sservers_lock);
 
     /* First try random */
     int rand_id;
@@ -79,14 +78,27 @@ ErrCode sserver_random(char *path, int *sock_fd)
         ret = (create(rand_id, path) < 0) ? ERR_EXISTS : ERR_NONE;
         if (ret == ERR_NONE)
         {
-            *sock_fd = sservers[rand_id].sock_fd;
+            *sserver_id = rand_id;
         }
+    }
+    return ret;
+}
+
+ErrCode sserver_random(char *path, int *sock_fd)
+{
+    int sserver_id = -1;
+    int ret = ERR_SS;
+    pthread_mutex_lock(&sservers_lock);
+    ret = _sserver_random(path, &sserver_id);
+    if (ret == ERR_NONE && sserver_id >= 0)
+    {
+        *sock_fd = sservers[sserver_id].sock_fd;
     }
     pthread_mutex_unlock(&sservers_lock);
     return ret;
 }
 
-ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
+ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int force_create)
 {
     int ret = ERR_NONE;
     if (!path || !path[0])
@@ -95,20 +107,25 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
     }
 
     pthread_mutex_lock(&sservers_lock);
-    int sserver_fd = search(path);
-    if (sserver_fd < 0 || sserver_fd >= NS_MAX_CONN || !sservers[sserver_fd].is_used)
+    int sserver_id = search(path);
+    if (sserver_id < 0)
+    {
+        ret = force_create ? _sserver_random(path, &sserver_id) : ERR_SS;
+    }
+    else if (sserver_id >= NS_MAX_CONN || !sservers[sserver_id].is_used)
     {
         ret = ERR_SS;
     }
-    else
+
+    if (ret == ERR_NONE)
     {
         if (addr)
         {
-            *addr = sservers[sserver_fd].addr;
+            *addr = sservers[sserver_id].addr;
         }
         if (sock_fd)
         {
-            *sock_fd = sservers[sserver_fd].sock_fd;
+            *sock_fd = sservers[sserver_id].sock_fd;
         }
     }
     pthread_mutex_unlock(&sservers_lock);
@@ -153,7 +170,7 @@ void *handle_client(void *client_socket)
             break;
         case OP_NS_DELETE:
             operation = "delete path";
-            ecode = sserver_by_path(msg->file, &sserver_fd, NULL);
+            ecode = sserver_by_path(msg->file, &sserver_fd, NULL, 0);
             if (ecode == ERR_NONE)
             {
                 if (sock_send(sserver_fd, (Message *)msg))
@@ -179,10 +196,10 @@ void *handle_client(void *client_socket)
             else
             {
                 *tmp = '\0';
-                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr);
+                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr, 1);
                 if (ecode == ERR_NONE)
                 {
-                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL);
+                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL, 0);
                 }
                 *tmp = ':';
             }
@@ -207,10 +224,11 @@ void *handle_client(void *client_socket)
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_GET_SS:
+        case OP_NS_GET_SS_FORCE:
             operation = "get SS";
             MessageAddr reply_addr;
             reply_addr.op = OP_NS_REPLY_SS;
-            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr);
+            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr, msg->op == OP_NS_GET_SS_FORCE);
             sock_send_ack(sock, &ecode);
             if (ecode == ERR_NONE)
             {

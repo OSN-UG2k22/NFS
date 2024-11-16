@@ -37,22 +37,23 @@
  * header */
 typedef enum _Operation
 {
-    OP_ACK,            /* MessageInt */
-    OP_RAW,            /* MessageChunk */
-    OP_SIZE,           /* MessageInt */
-    OP_NS_INIT_SS,     /* MessageInt */
-    OP_NS_INIT_CLIENT, /* Message */
-    OP_NS_INIT_FILE,   /* MessageFile */
-    OP_NS_CREATE,      /* MessageFile */
-    OP_NS_DELETE,      /* MessageFile */
-    OP_NS_COPY,        /* MessageFile */
-    OP_NS_GET_SS,      /* MessageFile */
-    OP_NS_REPLY_SS,    /* MessageAddr */
-    OP_NS_LS,          /* MessageFile */
-    OP_SS_READ,        /* MessageFile */
-    OP_SS_WRITE,       /* MessageFile */
-    OP_SS_INFO,        /* MessageFile */
-    OP_SS_STREAM,      /* MessageFile */
+    OP_ACK,             /* MessageInt */
+    OP_RAW,             /* MessageChunk */
+    OP_SIZE,            /* MessageInt */
+    OP_NS_INIT_SS,      /* MessageInt */
+    OP_NS_INIT_CLIENT,  /* Message */
+    OP_NS_INIT_FILE,    /* MessageFile */
+    OP_NS_CREATE,       /* MessageFile */
+    OP_NS_DELETE,       /* MessageFile */
+    OP_NS_COPY,         /* MessageFile */
+    OP_NS_GET_SS,       /* MessageFile */
+    OP_NS_GET_SS_FORCE, /* MessageFile */
+    OP_NS_REPLY_SS,     /* MessageAddr */
+    OP_NS_LS,           /* MessageFile */
+    OP_SS_READ,         /* MessageFile */
+    OP_SS_WRITE,        /* MessageFile */
+    OP_SS_INFO,         /* MessageFile */
+    OP_SS_STREAM,       /* MessageFile */
 } Operation;
 
 typedef enum _ErrCode

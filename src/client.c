@@ -107,6 +107,10 @@ int main(int argc, char *argv[])
             {
                 request.op = OP_NS_DELETE;
             }
+            else if (strcasecmp(op, "WRITE") == 0 || strcasecmp(op, "PWRITE") == 0)
+            {
+                request.op = OP_NS_GET_SS_FORCE;
+            }
             else
             {
                 request.op = OP_NS_GET_SS;
@@ -124,7 +128,7 @@ int main(int argc, char *argv[])
             }
             ret = sock_get_ack(sock_fd);
             MessageAddr *ss_addr = NULL;
-            if (ret == ERR_NONE && request.op == OP_NS_GET_SS)
+            if (ret == ERR_NONE && (request.op == OP_NS_GET_SS || request.op == OP_NS_GET_SS_FORCE))
             {
                 ss_addr = (MessageAddr *)sock_get(sock_fd);
                 if (ss_addr)
