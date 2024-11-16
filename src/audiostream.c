@@ -16,7 +16,6 @@ ErrCode stream_file(int client_socket, const char *filename)
         return ERR_SYS;
     }
 
-    struct flock lock = {0};
     if (file)
     {
         fd = fileno(file);
@@ -25,9 +24,7 @@ ErrCode stream_file(int client_socket, const char *filename)
             ret = ERR_SYS;
             goto end;
         }
-        lock.l_type = F_RDLCK;
-        lock.l_whence = SEEK_SET;
-        if (fcntl(fd, F_SETLK, &lock) == -1)
+        if (flock(fd, LOCK_SH | LOCK_NB) == -1)
         {
             fd = -1;
             ret = ERR_LOCK;
@@ -64,8 +61,7 @@ ErrCode stream_file(int client_socket, const char *filename)
 end:
     if (fd >= 0)
     {
-        lock.l_type = F_UNLCK;
-        if (fcntl(fd, F_SETLK, &lock) == -1)
+        if (flock(fd, LOCK_UN) == -1)
         {
             perror("[SELF] Error unlocking file");
             ret = ERR_LOCK;

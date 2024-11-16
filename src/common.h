@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <vlc/vlc.h>
 #include <inttypes.h>
-#include <fcntl.h>
+#include <sys/file.h>
 
 #define FILENAME_MAX_LEN 4096
 #define CHUNK_SIZE 1000

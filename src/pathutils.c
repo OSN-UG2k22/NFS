@@ -77,7 +77,6 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
 {
     int fd = -1;
     ErrCode ret = infile ? ERR_NONE : ERR_SYS;
-    struct flock lock = {0};
     if (infile && infile != stdin)
     {
         fd = fileno(infile);
@@ -88,9 +87,7 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
         }
         else
         {
-            lock.l_type = F_RDLCK;
-            lock.l_whence = SEEK_SET;
-            if (fcntl(fd, F_SETLK, &lock) == -1)
+            if (flock(fd, LOCK_SH | LOCK_NB) == -1)
             {
                 fd = -1;
                 ret = ERR_LOCK;
@@ -120,8 +117,7 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
 end:
     if (fd >= 0)
     {
-        lock.l_type = F_UNLCK;
-        if (fcntl(fd, F_SETLK, &lock) == -1)
+        if (flock(fd, LOCK_UN) == -1)
         {
             ret = ERR_LOCK;
         }
@@ -134,7 +130,6 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
 {
     int fd = -1;
     ErrCode ret = outfile ? ERR_NONE : ERR_SYS;
-    struct flock lock = {0};
     if (outfile && outfile != stdout)
     {
         fd = fileno(outfile);
@@ -145,9 +140,7 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
         }
         else
         {
-            lock.l_type = F_WRLCK;
-            lock.l_whence = SEEK_SET;
-            if (fcntl(fd, F_SETLK, &lock) == -1)
+            if (flock(fd, LOCK_EX | LOCK_NB) == -1)
             {
                 fd = -1;
                 ret = ERR_LOCK;
@@ -186,8 +179,7 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
     }
     if (fd >= 0)
     {
-        lock.l_type = F_UNLCK;
-        if (fcntl(fd, F_SETLK, &lock) == -1)
+        if (flock(fd, LOCK_UN) == -1)
         {
             perror("[SELF] Error unlocking file");
             ret = ERR_LOCK;
