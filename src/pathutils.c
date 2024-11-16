@@ -174,7 +174,10 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
         ret = ERR_CONN;
     }
 
-    *buffer_size = -1;
+    if (buffer_size)
+    {
+        *buffer_size = -1;
+    }
     MessageInt *msg_size = (MessageInt *)sock_get(sock);
     if (!msg_size || msg_size->op != OP_SIZE)
     {
@@ -182,11 +185,14 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
     }
     else
     {
-        *buffer_size = msg_size->info;
+        if (buffer_size)
+        {
+            *buffer_size = msg_size->info;
+        }
     }
 
     char *cur_buffer = NULL;
-    if (buffer && *buffer_size > FILE_THRESHOLD)
+    if (buffer && buffer_size && *buffer_size > FILE_THRESHOLD)
     {
         *buffer = malloc(*buffer_size);
         if (!*buffer)

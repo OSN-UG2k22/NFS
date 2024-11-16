@@ -165,10 +165,15 @@ void *handle_async(void *arg)
     FILE *outfile;
     char *buffer;
     ErrCode err = ERR_NONE;
-    fwrite(info->buffer, 1, info->size, info->outfile);
+    size_t written_bytes = fwrite(info->buffer, 1, info->size, info->outfile);
+    if (written_bytes != info->size)
+    {
+        err = ERR_SYS;
+    }
     if (flock(fileno(info->outfile), LOCK_UN) == -1)
     {
         perror("[SELF] Error unlocking file");
+        err = ERR_SYS;
     }
     free(info->buffer);
     if (info->outfile)

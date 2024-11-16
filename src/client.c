@@ -1,17 +1,19 @@
 #include "common.h"
 
-void handle_async(void* sock_server_ptr) {
-    int sock_server = *((int*)sock_server_ptr);
+void *handle_async(void *sock_server_ptr)
+{
+    int sock_server = *((int *)sock_server_ptr);
     ErrCode ret = sock_get_ack(sock_server);
     if (ret == ERR_NONE)
     {
-        printf("[SELF] Operation succeeded\n");
+        printf("\n[SELF] Asynchronous operation succeeded\n");
     }
     else
     {
-        printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
+        printf("[SELF] Asynchronous operation failed: %s\n", errcode_to_str(ret));
     }
     close(sock_server);
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -165,8 +167,9 @@ int main(int argc, char *argv[])
                     close(sock_server);
                 }
             }
-            else if (strcasecmp(op, "PWRITE") == 0)
+            else if (strcasecmp(op, "PWRITE") == 0 || strcasecmp(op, "WRITE") == 0)
             {
+                int pwrite = (strcasecmp(op, "PWRITE") == 0);
                 FILE *infile = arg2 ? fopen(arg2, "r") : stdin;
                 if (!infile)
                 {
@@ -186,52 +189,21 @@ int main(int argc, char *argv[])
                     }
                     if (ret == ERR_NONE)
                     {
-                        ret = path_sock_sendfile(sock_server, infile, 1);
+                        ret = path_sock_sendfile(sock_server, infile, pwrite);
                     }
                     if (infile != stdin)
                     {
                         fclose(infile);
                     }
-                    close(sock_server);
-                }
-            }
-            else if (strcasecmp(op, "WRITE") == 0)
-            {
-                FILE *infile = arg2 ? fopen(arg2, "r") : stdin;
-                int quiet = false;
-                if (!infile)
-                {
-                    perror("[SELF] Could not open local file");
-                }
-                else
-                {
-                    int sock_server = sock_connect_addr(&ss_addr->addr);
-                    request.op = OP_SS_WRITE;
-                    if (!sock_send(sock_server, (Message *)&request))
+                    if (ret == ERR_QUIET)
                     {
-                        ret = ERR_CONN;
-                    }
-                    if (ret == ERR_NONE)
-                    {
-                        ret = sock_get_ack(sock_server);
-                    }
-                    if (ret == ERR_QUIET) {
-                        quiet = true;
-                    }
-                    if (ret == ERR_NONE || ret == ERR_QUIET)
-                    {
-                        ret = path_sock_sendfile(sock_server, infile, 0);
-                    }
-                    if (infile != stdin)
-                    {
-                        fclose(infile);
-                    }
-                    if (quiet) {
-                        close(sock_server);
-                    } else {
                         pthread_t tid;
-                        pthread_create(&tid, NULL, handle_async, (void*) &sock_server);
+                        pthread_create(&tid, NULL, handle_async, (void *)&sock_server);
                         pthread_detach(tid);
+                    }
+                    else
+                    {
+                        close(sock_server);
                     }
                 }
             }
@@ -288,10 +260,13 @@ int main(int argc, char *argv[])
             {
                 printf("[SELF] Operation succeeded\n");
             }
+            else if (ret == ERR_QUIET)
+            {
+                printf("[SELF] Asynchronous operation started and pending\n");
+            }
             else
             {
                 printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
-                continue;
             }
         }
     }
