@@ -144,6 +144,8 @@ typedef struct _SServerInfo
     int is_used;
     int16_t id;
     uint16_t _port;
+    int16_t backup1;
+    int16_t backup2;
 } SServerInfo;
 
 typedef struct _AsyncWriteInfo
