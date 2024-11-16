@@ -29,12 +29,17 @@
 #define DEFAULT_HOST "127.0.0.1"
 #define NS_DEFAULT_PORT 4269
 
+#define SS_METADATA ".ss_metadata_hidden"
+#define NS_METADATA ".ns_metadata_hidden"
+
+#define FILE_THRESHOLD 2
 /* Any message sent over the network must have one of these values in the
  * header */
 typedef enum _Operation
 {
     OP_ACK,            /* MessageInt */
     OP_RAW,            /* MessageChunk */
+    OP_SIZE,           /* MessageInt */
     OP_NS_INIT_SS,     /* MessageInt */
     OP_NS_INIT_CLIENT, /* Message */
     OP_NS_INIT_FILE,   /* MessageFile */
@@ -60,6 +65,7 @@ typedef enum _ErrCode
     ERR_SYS,    /* Some system error when processing the request */
     ERR_EXISTS, /* Path already exists */
     ERR_LOCK,   /* Operation locked due to pending operation */
+    ERR_QUIET,  /* Async write told async is not needed hence don't print */
 } ErrCode;
 
 static inline char *errcode_to_str(ErrCode ecode)
@@ -82,6 +88,8 @@ static inline char *errcode_to_str(ErrCode ecode)
         return "Path already exists";
     case ERR_LOCK:
         return "Operation rejected (locked) due to another pending operation";
+    case ERR_QUIET:
+        return "No need of asynchronous write because file size is small";
     }
     return "Invalid error code";
 }
@@ -136,6 +144,14 @@ typedef struct _SServerInfo
     uint16_t _port;
 } SServerInfo;
 
+typedef struct _AsyncWriteInfo
+{
+    FILE *outfile;
+    char *buffer;
+    int size;
+    int sock_fd;
+} AsyncWriteInfo;
+
 void ipv4_print_addr(struct sockaddr_in *addr, const char *interface);
 
 int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd);
@@ -151,12 +167,9 @@ void stream_music(char *ip, uint16_t port);
 ErrCode stream_file(int client_socket, const char *filename);
 /* Path utils */
 
-#define SS_METADATA ".ss_metadata_hidden"
-#define NS_METADATA ".ns_metadata_hidden"
-
 char *path_remove_prefix(char *self, char *op);
 char *path_concat(char *first, char *second);
-ErrCode path_sock_sendfile(int sock, FILE *infile);
-ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile);
+ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite);
+ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **buffer, int *buffer_size);
 
 #endif

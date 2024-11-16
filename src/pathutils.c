@@ -73,9 +73,10 @@ char *path_concat(char *first, char *second)
 }
 
 /* Returns a char buffer that should be freed by caller, or NULL on failure */
-ErrCode path_sock_sendfile(int sock, FILE *infile)
+ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite)
 {
     int fd = -1;
+    int sz = -1;
     ErrCode ret = infile ? ERR_NONE : ERR_SYS;
     if (infile && infile != stdin)
     {
@@ -93,6 +94,20 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
                 ret = ERR_LOCK;
             }
         }
+        if (ret == ERR_NONE && !pwrite)
+        {
+            fseek(infile, 0L, SEEK_END);
+            sz = ftell(infile);
+            rewind(infile);
+        }
+    }
+
+    MessageInt msg_size;
+    msg_size.info = sz;
+    msg_size.op = OP_SIZE;
+    if (!sock_send(sock, (Message *)&msg_size))
+    {
+        ret = ERR_CONN;
     }
 
     MessageChunk chunk;
@@ -123,10 +138,10 @@ end:
         }
     }
     sock_send_ack(sock, &ret);
-    return ret;
+    return sock_get_ack(sock);
 }
 
-ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
+ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **buffer, int *buffer_size)
 {
     int fd = -1;
     ErrCode ret = outfile ? ERR_NONE : ERR_SYS;
@@ -158,6 +173,29 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
     {
         ret = ERR_CONN;
     }
+
+    *buffer_size = -1;
+    MessageInt *msg_size = (MessageInt *)sock_get(sock);
+    if (!msg_size || msg_size->op != OP_SIZE)
+    {
+        ret = ERR_CONN;
+    }
+    else
+    {
+        *buffer_size = msg_size->info;
+    }
+
+    char *cur_buffer = NULL;
+    if (buffer && *buffer_size > FILE_THRESHOLD)
+    {
+        *buffer = malloc(*buffer_size);
+        if (!*buffer)
+        {
+            ret = ERR_SYS;
+        }
+        cur_buffer = *buffer;
+    }
+
     while (ret == ERR_NONE)
     {
         Message *read_data = sock_get(sock);
@@ -173,17 +211,35 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
             break;
         }
         MessageChunk *read_chunk = (MessageChunk *)read_data;
-        fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
+        if (cur_buffer)
+        {
+            memcpy(cur_buffer, read_chunk->chunk, read_chunk->size);
+            cur_buffer += read_chunk->size;
+        }
+        else
+        {
+            fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
+        }
         free(read_data);
         sock_send_ack(sock, &ret);
     }
-    if (fd >= 0)
+    if (cur_buffer)
     {
-        if (flock(fd, LOCK_UN) == -1)
+        /* Async write */
+        ret = ERR_QUIET;
+    }
+    else
+    {
+        /* Sync write */
+        if (fd >= 0)
         {
-            perror("[SELF] Error unlocking file");
-            ret = ERR_LOCK;
+            if (flock(fd, LOCK_UN) == -1)
+            {
+                perror("[SELF] Error unlocking file");
+                ret = ERR_LOCK;
+            }
         }
     }
+    sock_send_ack(sock, &ret);
     return ret;
 }

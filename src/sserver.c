@@ -159,6 +159,26 @@ ErrCode sserver_delete(char *input_file_path)
     return ret;
 }
 
+void *handle_async(void *arg)
+{
+    AsyncWriteInfo *info = (AsyncWriteInfo *)arg;
+    FILE *outfile;
+    char *buffer;
+    ErrCode err = ERR_NONE;
+    fwrite(info->buffer, 1, info->size, info->outfile);
+    if (flock(fileno(info->outfile), LOCK_UN) == -1)
+    {
+        perror("[SELF] Error unlocking file");
+    }
+    free(info->buffer);
+    if (info->outfile)
+    {
+        fclose(info->outfile);
+    }
+    sock_send_ack(info->sock_fd, &err);
+    free(info);
+}
+
 void *handle_client(void *fd_ptr)
 {
     int sock_fd = (int)(intptr_t)fd_ptr;
@@ -183,7 +203,7 @@ void *handle_client(void *fd_ptr)
                 perror("[SELF] Could not open file");
                 ecode = ERR_SYS;
             }
-            ecode = path_sock_sendfile(sock_fd, file);
+            ecode = path_sock_sendfile(sock_fd, file, 1);
             if (file)
             {
                 fclose(file);
@@ -200,10 +220,27 @@ void *handle_client(void *fd_ptr)
             MessageInt ack;
             ack.op = OP_ACK;
             ack.info = ecode;
-            ecode = path_sock_getfile(sock_fd, (Message *)&ack, file);
-            if (file)
+            char *buffer = NULL;
+            int buffer_size = -1;
+            ecode = path_sock_getfile(sock_fd, (Message *)&ack, file, &buffer, &buffer_size);
+            if (buffer)
             {
-                fclose(file);
+                AsyncWriteInfo *arg = malloc(sizeof(AsyncWriteInfo));
+                arg->outfile = file;
+                arg->buffer = buffer;
+                arg->size = buffer_size;
+                arg->sock_fd = sock_fd;
+                /* Async write code */
+                pthread_t thread_id;
+                pthread_create(&thread_id, NULL, handle_async, arg);
+                pthread_detach(thread_id);
+            }
+            else
+            {
+                if (file)
+                {
+                    fclose(file);
+                }
             }
             break;
         case OP_SS_STREAM:
@@ -252,7 +289,7 @@ void *handle_client(void *fd_ptr)
                 perror("[SELF] Could not open file");
                 ecode = ERR_SYS;
             }
-            ecode = path_sock_sendfile(sock_fd, file);
+            ecode = path_sock_sendfile(sock_fd, file, 1);
             if (file)
             {
                 pclose(file);
@@ -358,7 +395,7 @@ void *handle_ns(void *ns_fd_ptr)
                 ecode = sock_send(dst_sock, (Message *)msg) ? sock_get_ack(dst_sock) : ERR_CONN;
                 if (ecode == ERR_NONE)
                 {
-                    ecode = path_sock_sendfile(dst_sock, src_file);
+                    ecode = path_sock_sendfile(dst_sock, src_file, 1);
                 }
                 fclose(src_file);
                 close(dst_sock);

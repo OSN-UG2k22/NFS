@@ -232,7 +232,7 @@ void *handle_client(void *client_socket)
                 if (ecode == ERR_NONE)
                 {
                     fseek(temp, 0, SEEK_SET);
-                    ecode = path_sock_sendfile(sock, temp);
+                    ecode = path_sock_sendfile(sock, temp, 1);
                 }
                 else
                 {

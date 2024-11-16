@@ -25,6 +25,7 @@ int sock_send(int sock, Message *message)
         message->size = strlen(((MessageFile *)message)->file) + 1;
         break;
     case OP_NS_INIT_SS:
+    case OP_SIZE:
     case OP_ACK:
         message->size = sizeof(int);
         break;
