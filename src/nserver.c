@@ -139,9 +139,16 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int 
     {
         ret = force_create ? _sserver_random(path, &sserver_id) : ERR_SS;
     }
-    else if (is_partial && !force_create)
+    else if (is_partial)
     {
-        ret = ERR_SS;
+        if (force_create)
+        {
+            ret = (create(sserver_id, path) < 0) ? ERR_EXISTS : ERR_NONE;
+        }
+        else
+        {
+            ret = ERR_SS;
+        }
     }
 
     if (ret == ERR_NONE)
