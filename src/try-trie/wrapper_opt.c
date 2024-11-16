@@ -3,7 +3,8 @@
 trienode *__global_trie = NULL;
 LRU_Cache *__global_lru = NULL;
 
-int search_v2(char *str,int* is_partial){
+int search_v2(char *str, int *is_partial)
+{
     if (!__global_trie)
     {
         return -1;
@@ -106,7 +107,7 @@ int search(char *str) // searches in lru first, if not found then in trie return
 }
 // int find_all(int *arr, int max_conn, char *str); // to remove warning
 
-int *delete_file_folder(char *str) // first deletes from LRU, then deletes from trie
+int delete_file_folder(char *str) // first deletes from LRU, then deletes from trie
 {
     if (!__global_trie)
     {
@@ -114,24 +115,16 @@ int *delete_file_folder(char *str) // first deletes from LRU, then deletes from 
     }
 
     char *newstr = handle_slash(str);
-    int *arr = calloc(NS_MAX_CONN, sizeof(int));
-    if (arr == NULL)
-    {
-        perror("Failed to allocate memory");
-        return NULL;
-    }
-
-    int x = find_all(__global_trie, arr, NS_MAX_CONN, newstr);
+    int *arr;
+    int x = search_v2(newstr, arr);
     if (x == -1)
     {
-        printf("Wrong Path\n");
-        free(arr);
-        return NULL;
+        return -1;
     }
 
     delete_from_cache(__global_lru, newstr);
     delete_from_trie(__global_trie, newstr);
-    return arr;
+    return x;
 }
 
 pthread_mutex_t *what_the_lock(char *str) // returns a pointer to lock for that file

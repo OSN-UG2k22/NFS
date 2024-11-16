@@ -172,6 +172,10 @@ void test_search_new()
     x = search_v2("/home/abhiram", &is_partial);
     assert(x == 2);
     assert(is_partial == 1);
+
+    x = search_v2("/", &is_partial);
+    assert(x == 2);
+    assert(is_partial == 0);
 }
 int main()
 {
