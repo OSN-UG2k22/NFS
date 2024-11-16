@@ -10,7 +10,6 @@ int find_subtree_new(trienode *node) // returns what server it is in
     {
         return node->hashind;
     }
-    int x = -1;
     for (int i = 0; i < 256; i++)
     {
         if (node->child[i] != NULL)
@@ -18,7 +17,6 @@ int find_subtree_new(trienode *node) // returns what server it is in
             int y = find_subtree_new(node->child[i]);
             if (y != -1)
             {
-                x = y;
                 return y;
             }
         }

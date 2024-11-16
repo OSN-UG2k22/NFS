@@ -111,12 +111,12 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
 {
     if (!__global_trie)
     {
-        return NULL;
+        return -1;
     }
 
     char *newstr = handle_slash(str);
-    int *arr;
-    int x = search_v2(newstr, arr);
+    int arr;
+    int x = search_v2(newstr, &arr);
     if (x == -1)
     {
         return -1;

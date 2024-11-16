@@ -124,7 +124,7 @@ ErrCode sserver_random(char *path, int *sock_fd)
     return ret;
 }
 
-ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int force_create)
+ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int force_create, int with_delete)
 {
     int ret = ERR_NONE;
     if (!path || !path[0])
@@ -133,12 +133,13 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int 
     }
 
     pthread_mutex_lock(&sservers_lock);
-    int sserver_id = search(path);
+    int is_partial = 0;
+    int sserver_id = with_delete ? delete_file_folder(path) : search_v2(path, &is_partial);
     if (sserver_id < 0)
     {
         ret = force_create ? _sserver_random(path, &sserver_id) : ERR_SS;
     }
-    else if (sserver_id >= NS_MAX_CONN || !sservers[sserver_id].is_used)
+    else if (is_partial && !force_create)
     {
         ret = ERR_SS;
     }
@@ -189,14 +190,14 @@ void *handle_client(void *client_socket)
                 }
                 if (ecode != ERR_NONE)
                 {
-                    free(delete_file_folder(msg->file));
+                    delete_file_folder(msg->file);
                 }
             }
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_DELETE:
             operation = "delete path";
-            ecode = sserver_by_path(msg->file, &sserver_fd, NULL, 0);
+            ecode = sserver_by_path(msg->file, &sserver_fd, NULL, 0, 1);
             if (ecode == ERR_NONE)
             {
                 if (sock_send(sserver_fd, (Message *)msg))
@@ -222,10 +223,10 @@ void *handle_client(void *client_socket)
             else
             {
                 *tmp = '\0';
-                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr, 1);
+                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr, 1, 0);
                 if (ecode == ERR_NONE)
                 {
-                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL, 0);
+                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL, 0, 0);
                 }
                 *tmp = ':';
             }
@@ -254,7 +255,7 @@ void *handle_client(void *client_socket)
             operation = "get SS";
             MessageAddr reply_addr;
             reply_addr.op = OP_NS_REPLY_SS;
-            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr, msg->op == OP_NS_GET_SS_FORCE);
+            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr, msg->op == OP_NS_GET_SS_FORCE, 0);
             sock_send_ack(sock, &ecode);
             if (ecode == ERR_NONE)
             {

@@ -162,11 +162,9 @@ ErrCode sserver_delete(char *input_file_path)
 void *handle_async(void *arg)
 {
     AsyncWriteInfo *info = (AsyncWriteInfo *)arg;
-    FILE *outfile;
-    char *buffer;
     ErrCode err = ERR_NONE;
     size_t written_bytes = fwrite(info->buffer, 1, info->size, info->outfile);
-    if (written_bytes != info->size)
+    if (written_bytes != (size_t)info->size)
     {
         err = ERR_SYS;
     }
@@ -182,6 +180,7 @@ void *handle_async(void *arg)
     }
     sock_send_ack(info->sock_fd, &err);
     free(info);
+    return NULL;
 }
 
 void *handle_client(void *fd_ptr)
