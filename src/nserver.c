@@ -433,6 +433,10 @@ void *handle_client(void *client_socket)
                 }
                 fclose(temp);
             }
+            char** file_array = (char**) malloc(MAX_FILES*sizeof(char*));
+            for (int i = 0; i < MAX_FILES; i++) {
+                file_array[i] = (char*) malloc(FILENAME_MAX_LEN*sizeof(char));
+            }
             break;
         default:
             /* Invalid OP at this case */

@@ -8,12 +8,14 @@
 #include <pthread.h>
 #include <unistd.h>
 
+#define ALL_CHARS 256
+
 typedef struct trienode
 {
     bool lastnode;
     int hashind;
     pthread_mutex_t lock;
-    struct trienode *child[256];
+    struct trienode *child[ALL_CHARS];
 } trienode;
 
 trienode *newnode();                                    // done
@@ -37,5 +39,6 @@ void debug_print_trie(trienode *root);
 void debug_print(trienode *root, char *str, int level);
 pthread_mutex_t *lock_in_trie(trienode *root, char *str);
 int print_all_childs(trienode *root, char *str, FILE *fp);
+void get_all_subtree_nodes(trienode *node, char *path, int level, char** file_array, int* len_filearray, int hashind);
 
 #endif

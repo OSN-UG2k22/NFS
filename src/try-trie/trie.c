@@ -366,3 +366,37 @@ int print_all_childs(trienode *root, char *str, FILE *fp)
     print_all_subtree(root, path, 0, fp);
     return 1;
 }
+
+
+void get_all_subtree_nodes(trienode *node, char *path, int level, char** file_array, int* len_filearray, int hashind)
+{
+    //printf("l: path: %s, level: %d, len_file: %d, hashid: %d\n", path, level, *len_filearray, hashind);
+    if (node == NULL)
+    {
+        return;
+    }
+
+    if (node->hashind != -1 || node->child[(int)'/'] != NULL)
+    {
+        path[level] = '\0';
+        //printf("Found!: %s (hashind: %d) at depth: %d\n", path, node->hashind, level);
+        if (node->hashind == hashind)
+            strcpy(file_array[*len_filearray++], path);
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        char c = (char)i;
+        if (c == '/')
+        {
+            continue;
+            // printf("%s\n", str);
+            // return;
+        }
+        if (node->child[i] != NULL)
+        {
+            path[level] = (char)i; // Append the character to the current path
+            get_all_subtree_nodes(node->child[i], path, level + 1, file_array, len_filearray, hashind);
+        }
+    }
+}
