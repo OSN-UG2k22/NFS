@@ -245,7 +245,7 @@ int main(int argc, char *argv[])
                 {
                     int sock_server = sock_connect_addr(&ss_addr->addr);
                     request.op = OP_SS_INFO;
-                    printf("%s ", request.file);
+                    printf("%s \n", request.file);
                     ret = path_sock_getfile(sock_server, (Message *)&request, outfile, NULL, NULL);
                     if (outfile != stdout)
                     {

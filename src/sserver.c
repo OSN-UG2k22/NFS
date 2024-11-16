@@ -286,19 +286,37 @@ void *handle_client(void *fd_ptr)
             operation = "info of path";
             // use ls -l program to get file(actual_path) info
             // scrape size last modified date and name and permissions from it and send it to client
-            char command[256];
-            snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
-            file = popen(command, "r");
-            if (!file)
+            // char command[256];
+            // snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
+            // file = popen(command, "r");
+            // if (!file)
+            // {
+            //     perror("[SELF] Could not open file");
+            //     ecode = ERR_SYS;
+            // }
+            FILE *temp = tmpfile();
+            if (!temp)
             {
-                perror("[SELF] Could not open file");
+                perror("[SELF] Could not create temporary file for processing");
                 ecode = ERR_SYS;
             }
-            ecode = path_sock_sendfile(sock_fd, file, 1);
+            file = fopen(actual_path, "r");
+            struct stat st;
+            fstat(fileno(file), &st);
+            fprintf(temp,"Permissions: %o\n", st.st_mode & 0777);
+            fprintf(temp,"Size: %ld bytes\n", st.st_size);
+            fprintf(temp,"Last modified: %s", ctime(&st.st_mtime));
+            fprintf(temp,"Last accessed: %s", ctime(&st.st_atime));
+            fprintf(temp,"Creation time: %s", ctime(&st.st_ctime));
+            rewind(temp);
+            ecode = path_sock_sendfile(sock_fd, temp, 1);
+            if (temp)
+                fclose(temp);
             if (file)
             {
-                pclose(file);
+                fclose(file);
             }
+
             break;
         default:
             /* Invalid OP at this case */
