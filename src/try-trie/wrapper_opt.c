@@ -3,6 +3,23 @@
 trienode *__global_trie = NULL;
 LRU_Cache *__global_lru = NULL;
 
+int search_v2(char *str,int* is_partial){
+    if (!__global_trie)
+    {
+        return -1;
+    }
+
+    char *newstr = handle_slash(str);
+    int x = find_new(__global_trie, newstr, is_partial);
+    // if (x != -1)
+    // {
+    //     *is_partial = 0;
+    //     return x;
+    // }
+    // *is_partial = 1;
+    return x;
+}
+
 char *handle_slash(char *str)
 {
     int len = (int)strlen(str);

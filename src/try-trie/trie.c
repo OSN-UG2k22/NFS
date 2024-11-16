@@ -1,5 +1,61 @@
 #include "trie.h"
 
+int find_subtree_new(trienode *node) // returns what server it is in
+{
+    if (node == NULL)
+    {
+        return -1;
+    }
+    if (node->hashind != -1)
+    {
+        return node->hashind;
+    }
+    int x = -1;
+    for (int i = 0; i < 256; i++)
+    {
+        if (node->child[i] != NULL)
+        {
+            int y = find_subtree_new(node->child[i]);
+            if (y != -1)
+            {
+                x = y;
+                return y;
+            }
+        }
+    }
+    return -1;
+}
+
+int find_new(trienode *root, char *str, int *is_partial)
+{
+    if (root == NULL)
+    {
+        return -1;
+    }
+
+    for (int i = 0; i < (int)strlen(str); i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            *is_partial = 1;               // path didnt match complete
+            if (i==1)
+            {
+                *is_partial = 1;
+                return -1;
+            }
+            return find_subtree_new(root); // return what server it is in
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    // it matched completely
+    *is_partial = 0;
+    if (!root->lastnode)
+    {
+        return find_subtree_new(root); // and is in this server
+    }
+    return root->hashind;
+}
+
 trienode *newnode()
 {
     // printf("DEBUG MESSAGE : AA GYA YHN M\n");
