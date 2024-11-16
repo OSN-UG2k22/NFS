@@ -7,6 +7,43 @@ int16_t sservers_count = 0;
 
 char *nserver_meta_path = NULL;
 
+char *give_me_another_path(char *path, int x)
+{
+    char ssx_prefix[20];
+    snprintf(ssx_prefix, sizeof(ssx_prefix), "backup/ss%d/", x);
+    size_t prefix_len = strlen(ssx_prefix);
+    size_t path_len = strlen(path);
+    char *ret = malloc(prefix_len + path_len + 1);
+    if (!ret)
+    {
+        return NULL;
+    }
+    memmove(ret, ssx_prefix, prefix_len);
+    memmove(ret + prefix_len, path, path_len + 1);
+    return ret;
+}
+
+int *give_me_backup(int x)
+{
+    int *ret = malloc(sizeof(int) * 2);
+    if (x == 0)
+    {
+        ret[0] = 1;
+        ret[1] = 2;
+    }
+    else if (x == 1)
+    {
+        ret[0] = 1;
+        ret[1] = 2;
+    }
+    else
+    {
+        ret[0] = x - 1;
+        ret[1] = x - 2;
+    }
+    return ret;
+}
+
 SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_fd)
 {
     SServerInfo *ret = NULL;
@@ -160,6 +197,35 @@ void *handle_client(void *client_socket)
                 else
                 {
                     ecode = ERR_CONN;
+                }
+                if (ecode == ERR_NONE && sservers_count > 2)
+                {
+                    int *backup_servers = give_me_backup(ecode);
+                    char *backup_path = give_me_another_path(msg->file, ecode);
+
+                    for (int i = 0; i < 2; i++)
+                    {
+                        int backup_fd = sservers[backup_servers[i]].sock_fd;
+                        strcpy(msg->file, backup_path);
+                        if (sock_send(backup_fd, (Message *)msg))
+                        {
+                            ErrCode backup_code = sock_get_ack(backup_fd);
+                            if (backup_code != ERR_NONE)
+                            {
+                                printf("[BACKUP %d] Backup failed on server %d\n", sock, backup_servers[i]);
+                            }
+                        }
+                        else
+                        {
+                            printf("[BACKUP %d] Failed to send backup to server %d\n", sock, backup_servers[i]);
+                        }
+                    }
+                    free(backup_path);
+                    free(backup_servers);
+                }
+                else if (ecode != ERR_NONE)
+                {
+                    free(delete_file_folder(msg->file));
                 }
                 if (ecode != ERR_NONE)
                 {
