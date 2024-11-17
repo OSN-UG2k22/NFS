@@ -1,5 +1,46 @@
 #include "trie.h"
 
+void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp)
+{
+    if (node == NULL)
+    {
+        return;
+    }
+
+    if (node->hashind != -1)
+    {
+        path[level] = '\0';
+        fprintf(fp, "%s\n", path);
+    }
+
+    for (int i = 0; i < 256; i++)
+    {
+        char c = (char)i;
+        if (node->child[i] != NULL)
+        {
+            path[level] = (char)i; // Append the character to the current path
+            print_all_subtree_complete(node->child[i], path, level + 1, fp);
+        }
+    }
+}
+
+int print_all_childs_v2(trienode *root, char *str, FILE *fp)
+{
+    int len = (int)strlen(str);
+    for (int i = 0; i < len; i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            return 0;
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    char path[256];
+
+    print_all_subtree_complete(root, path, 0, fp);
+    return 1;
+}
+
 int find_subtree_new(trienode *node) // returns what server it is in
 {
     if (node == NULL)
@@ -30,30 +71,43 @@ int find_new(trienode *root, char *str, int *is_partial)
     {
         return -1;
     }
-
-    for (int i = 0; i < (int)strlen(str); i++)
+    int i = 0;
+    trienode *lastslash = root;
+    trienode *rootc = root;
+    *is_partial = 1;
+    for (; i < (int)strlen(str); i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
         {
-            *is_partial = 1;               // path didnt match complete
-            if (i==1)
-            {
-                *is_partial = 1;
-                return -1;
-            }
-            return find_subtree_new(root); // return what server it is in
+            *is_partial = 1;
+            break;
+        }
+        if (str[i] == '/')
+        {
+            lastslash = root;
         }
         root = root->child[(unsigned char)str[i]];
     }
-    // it matched completely
-    *is_partial = 0;
-    if (!root->lastnode)
-    {
-        return find_subtree_new(root); // and is in this server
-    }
-    return root->hashind;
-}
 
+    if (i == strlen(str) && root->child[(int)'/'] == NULL)
+    {
+        // is file or incomplete match
+        *is_partial = 0;
+        return root->hashind;
+    }
+    if (i == strlen(str) && root->child[(int)'/'] != NULL)
+    {
+        // is directory
+        *is_partial = 0;
+        return find_subtree_new(root);
+    }
+    is_partial = 1;
+    if (lastslash != rootc)
+    {
+        return find_subtree_new(lastslash);
+    }
+    return -1;
+}
 trienode *newnode()
 {
     // printf("DEBUG MESSAGE : AA GYA YHN M\n");

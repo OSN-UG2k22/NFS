@@ -120,14 +120,15 @@ void tough_test()
 void test_search_new()
 {
     // assert(create(1, "home") != -1);
-    assert(create(2, "home/abc") != -1);
-    assert(create(4, "home/abc/def/ghi") != -1);
-    assert(create(6, "home/abc/def/ghi/jkl/mno") != -1);
-    assert(create(3, "home/abc/def") != -1);
-    assert(create(5, "home/abc/def/ghi/jkl") != -1);
+    assert(create(2, "home/abc/") != -1);
+    assert(create(4, "home/abc/def/ghi/") != -1);
+    assert(create(6, "home/abc/def/ghi/jkl/mno/") != -1);
+    assert(create(3, "home/abc/def/") != -1);
+    assert(create(5, "home/abc/def/ghi/jkl/") != -1);
 
     int is_partial = -1;
-    int x = search_v2("home", &is_partial);
+    int x; 
+    x = search_v2("home", &is_partial);
     assert(x == 2);
     assert(is_partial == 0);
 
@@ -147,12 +148,12 @@ void test_search_new()
     assert(x == 5);
     assert(is_partial == 0);
 
-    x = search_v2("home/abc/def/ghi/jkl/mno", &is_partial);
+    x = search_v2("home/abc/def/ghi/jkl/mno/", &is_partial);
     assert(x == 6);
     assert(is_partial == 0);
 
     x = search_v2("home/abc/def/ghi/jkl/mno/pqr", &is_partial);
-    assert(x == 6);
+    assert(x == 6);  // failed
     assert(is_partial == 1);
 
     x = search_v2("home/abc/def/ghi/jkl/mno/pqr/", &is_partial);
@@ -166,26 +167,87 @@ void test_search_new()
     x = search_v2("home/abc/def/ghi/jkl/mno/pqr/stu/", &is_partial);
     assert(x == 6);
     assert(is_partial == 1);
-    x = search_v2("/abhiram", &is_partial);
+    x = search_v2("/abhiram/", &is_partial);
     assert(x == -1);
-
+    // return;
+    // /home/
     x = search_v2("/home/abhiram", &is_partial);
+    // printf("x: %d\n", x);
     assert(x == 2);
     assert(is_partial == 1);
+    // return;
 
     x = search_v2("/", &is_partial);
     assert(x == 2);
     assert(is_partial == 0);
 }
+
+void test_ls_v2()
+{
+    assert(create(2, "home/abc/") != -1);
+    assert(create(4, "home/abc/def/ghi/") != -1);
+    assert(create(4, "home/abc/def/a.txt") != -1);
+    assert(create(6, "home/abc/def/ghi/jkl/mno/") != -1);
+    assert(create(3, "home/abc/def/") != -1);
+    assert(create(5, "home/abc/def/ghi/jkl/") != -1);
+    ls_v2("home/abc/", stdout);
+}
+
+void my_doubt()
+{
+    int is_partial = -1;
+    assert(create(1, "abhiram/") != -1);
+    int x = search_v2("abhiram", &is_partial);
+    assert(x == 1);
+
+    x = search_v2("abhi", &is_partial);
+    // to handle this if abhi is a file trie should end there
+    // if abhiram is a file then it should end with /
+    assert(x == 1); // need -1 here
+    assert(is_partial == 0);
+
+    x = search_v2("abhi/def", &is_partial);
+    assert(x == 1);
+    assert(is_partial == 1);
+}
+
+// if abhiram is a directory then abhi is not a file
+void my_fix()
+{
+    int is_partial = -1;
+    assert(create(1, "abhiram/") != -1);
+    int x;
+    x = search_v2("abhiram", &is_partial);
+    assert(x == 1);
+    assert(is_partial == 0);
+
+    x = search_v2("abhiram/", &is_partial);
+    assert(x == 1);
+    assert(is_partial == 0);
+
+    x = search_v2("abhi", &is_partial);
+    // to handle this if abhi is a file trie should end there
+    // if abhiram is a file then it should end with /
+    assert(x == -1); // need -1 here
+
+    x = search_v2("abhi/def", &is_partial);
+    assert(x == -1);
+}
+
 int main()
 {
+    // my_fix();
     test_search_new();
-    // test_create();
     // test_search();
+    // my_doubt();
+    // test_ls_v2();
+    // test_create();
     // test_delete_file_folder();
     // test_what_the_lock();
     // test_ls();
     // tough_test();
+    // test_ls();
+    printf("All tests passed successfully.\n");
     // char *path = "/example/path";
     // char *path1 = "example";
     // char *path2 = "example/path/";
@@ -201,8 +263,6 @@ int main()
 
     // char *result3 = handle_slash(path3);
     // printf("for %s function output: %s\n", path3, result3);
-    // test_ls();
-    printf("All tests passed successfully.\n");
 
     // create(1, "home");
     // create(2, "home/abc");

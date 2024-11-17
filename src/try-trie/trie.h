@@ -17,6 +17,7 @@ typedef struct trienode
 } trienode;
 
 trienode *newnode();                                    // done
+int print_all_childs_v2(trienode *root, char *str, FILE *fp);
 int trieinsert(trienode *temp, char *str, int hashind); // returns -1 if duplicate, if success returns hashind
 int find_in_trie(trienode *root, char *str);
 

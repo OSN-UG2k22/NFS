@@ -3,8 +3,37 @@
 trienode *__global_trie = NULL;
 LRU_Cache *__global_lru = NULL;
 
+char *handle_slash_v2(char *str) //dont ignore trailing '/'
+{
+    int len = (int)strlen(str);
+    char *newstr = malloc((len + 3) * sizeof(char));
+    int i = 0; // for str
+    int j = 0; // for newstr
+    if (str[i] != '/')
+    {
+        newstr[j++] = '/';
+    }
+    for (; i < len; i++)
+    {
+        newstr[j++] = str[i];
+    }
+    newstr[j] = '\0';
+    return newstr;
+}
+int ls_v2(char *str, FILE *fp) // lists all files and subfiles
+{
+    if (!__global_trie)
+    {
+        return 0;
+    }
+    char *newstr = handle_slash_v2(str);
+    int result = print_all_childs_v2(__global_trie, newstr, fp);
+    return result;
+}
+
 int search_v2(char *str, int *is_partial)
 {
+
     if (!__global_trie)
     {
         return -1;
@@ -49,7 +78,7 @@ char *handle_slash(char *str)
 
 int create(int main_server, char *str) // takes main server and string path inserts in trie updates lru
 {
-    char *newstr = handle_slash(str);
+    char *newstr = handle_slash_v2(str);
     if (__global_trie == NULL)
     {
         initialize_trie(&__global_trie);
