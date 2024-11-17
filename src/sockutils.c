@@ -17,6 +17,7 @@ int sock_send(int sock, Message *message)
     case OP_NS_CREATE:
     case OP_NS_DELETE:
     case OP_NS_LS:
+    case OP_NS_LR:
     case OP_SS_READ:
     case OP_SS_WRITE:
     case OP_SS_INFO:
@@ -87,6 +88,7 @@ Message *sock_get(int sock)
     case OP_NS_CREATE:
     case OP_NS_DELETE:
     case OP_NS_LS:
+    case OP_NS_LR:
     case OP_SS_READ:
     case OP_SS_WRITE:
     case OP_SS_INFO:

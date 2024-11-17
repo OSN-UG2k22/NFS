@@ -270,7 +270,8 @@ void *handle_client(void *client_socket)
             }
             break;
         case OP_NS_LS:
-            operation = "list dir";
+        case OP_NS_LR:
+            operation = (msg->op == OP_NS_LS) ? "list dir" : "list dir recursive";
             FILE *temp = tmpfile();
             if (!temp)
             {
@@ -280,7 +281,12 @@ void *handle_client(void *client_socket)
             }
             else
             {
-                ecode = ls(msg->file, temp) ? ERR_NONE : ERR_SS;
+                if (msg->op == OP_NS_LS) {
+                    ecode = ls(msg->file, temp) ? ERR_NONE : ERR_SS;
+                }
+                else {
+                    ecode = ls_v2(msg->file, temp) ? ERR_NONE : ERR_SS;
+                }
                 if (ecode == ERR_NONE)
                 {
                     fseek(temp, 0, SEEK_SET);

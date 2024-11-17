@@ -101,7 +101,7 @@ int find_new(trienode *root, char *str, int *is_partial)
         *is_partial = 0;
         return find_subtree_new(root);
     }
-    is_partial = 1;
+    *is_partial = 1;
     if (lastslash != rootc)
     {
         return find_subtree_new(lastslash);

@@ -46,6 +46,7 @@ int main(int argc, char *argv[])
         printf("- INFO [path]\n");
         printf("- COPY [destination path]:[source path]\n");
         printf("- LS [path]\n");
+        printf("- LR [path] (list subpaths recursively)\n");
         printf("- CREATE [path]\n");
         printf("- DELETE [path]\n");
         while (1)
@@ -99,6 +100,10 @@ int main(int argc, char *argv[])
             {
                 request.op = OP_NS_LS;
             }
+            else if (strcasecmp(op, "LR") == 0)
+            {
+                request.op = OP_NS_LR;
+            }
             else if (strcasecmp(op, "CREATE") == 0)
             {
                 request.op = OP_NS_CREATE;
@@ -115,7 +120,7 @@ int main(int argc, char *argv[])
             {
                 request.op = OP_NS_GET_SS;
             }
-            if (request.op == OP_NS_LS)
+            if (request.op == OP_NS_LS || request.op == OP_NS_LR)
             {
                 ret = path_sock_getfile(sock_fd, (Message *)&request, stdout, NULL, NULL);
                 goto end_loop;

@@ -50,6 +50,7 @@ typedef enum _Operation
     OP_NS_GET_SS_FORCE, /* MessageFile */
     OP_NS_REPLY_SS,     /* MessageAddr */
     OP_NS_LS,           /* MessageFile */
+    OP_NS_LR,           /* MessageFile */
     OP_SS_READ,         /* MessageFile */
     OP_SS_WRITE,        /* MessageFile */
     OP_SS_INFO,         /* MessageFile */

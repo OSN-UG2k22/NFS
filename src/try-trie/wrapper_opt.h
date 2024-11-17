@@ -12,6 +12,7 @@ int search(char *str);                  // searches in lru first, if not found t
 int delete_file_folder(char *str); // first deletes from lru then deletes from from trie
 pthread_mutex_t *what_the_lock(char *str); // returns a pointer to lock for that file
 int ls(char* str,FILE* fp); // lists all files and subfiles
+int ls_v2(char* str,FILE* fp); // lists all files and subfiles
 int search_v2(char *str,int* is_partial);
 // lock(char *str)
 // unlock(char *str)
