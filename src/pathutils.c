@@ -253,9 +253,33 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
 /* Normalize a path, dealing with ., .. and repeated / */
 void path_norm(char *path, int *size)
 {
+    if (!path)
+    {
+        return;
+    }
+
     int length = strlen(path);
+
+    /* Empty string goes out as empty string */
+    if (!length)
+    {
+        if (size)
+        {
+            *size = 0;
+        }
+        return;
+    }
+
     int write = 0;
     int read = 0;
+
+    /* If leading slash, leave it in place */
+    if (path[0] == '/')
+    {
+        read++;
+        path[write++] = '/';
+    }
+
     while (read < length)
     {
         while (path[read] == '/' && read < length)
@@ -299,13 +323,6 @@ void path_norm(char *path, int *size)
     if (write == 0)
     {
         path[write++] = '/';
-    }
-    else
-    {
-        while (write > 0 && path[write - 1] == '/')
-        {
-            write--;
-        }
     }
 
     if (size)

@@ -23,8 +23,7 @@ int sock_send(int sock, Message *message)
     case OP_SS_STREAM:
     case OP_NS_GET_SS:
     case OP_NS_GET_SS_FORCE:
-        path_norm(((MessageFile *)message)->file, &message->size);
-        message->size++;
+        message->size = strlen(((MessageFile *)message)->file) + 1;
         break;
     case OP_NS_INIT_SS:
     case OP_SIZE:

@@ -2,7 +2,7 @@
 
 void *handle_async(void *sock_server_ptr)
 {
-    int sock_server = *((int *)sock_server_ptr);
+    int sock_server = (int)(intptr_t)sock_server_ptr;
     ErrCode ret = sock_get_ack(sock_server);
     if (ret == ERR_NONE)
     {
@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
                     if (ret == ERR_QUIET)
                     {
                         pthread_t tid;
-                        pthread_create(&tid, NULL, handle_async, (void *)&sock_server);
+                        pthread_create(&tid, NULL, handle_async, (void *)(intptr_t)sock_server);
                         pthread_detach(tid);
                     }
                     else
