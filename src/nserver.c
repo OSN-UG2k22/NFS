@@ -223,6 +223,15 @@ void *handle_client(void *client_socket)
             MessageAddr msg_addr;
             msg_addr.op = OP_NS_REPLY_SS;
             char *tmp = strchr(msg->file, ':');
+            char *tmp2 = strdup(msg->file);
+            for (int i = 0; i < strlen(tmp2); i++)
+            {
+                if (tmp2[i] == ':')
+                {
+                    tmp2[i] = '\0';
+                    break;
+                }
+            }
             if (!tmp)
             {
                 ecode = ERR_REQ;
@@ -240,10 +249,17 @@ void *handle_client(void *client_socket)
             if (ecode == ERR_NONE)
             {
                 // for foldder use ls_v2 and list all the files and folder in folder
-                if (tmp[strlen(tmp) - 1] == '/')
+
+                // printf("ISFILE %d : %s\n", IS_FILE(tmp2), tmp2);
+                // printf("ISFILE %d : %s\n", IS_FILE(tmp + 1), tmp + 1);
+
+                // isse phle destination h hi nhi
+                // IS_FILE(tmp2) == 0 means it is a folder
+                // destination:source
+                if ((IS_FILE(tmp2) == -1 || IS_FILE(tmp2) == 0) && IS_FILE(tmp + 1) == 0)
                 {
-                    FILE* temp = tmpfile();
-                    ls_v2(tmp+1, temp);
+                    FILE *temp = tmpfile();
+                    ls_v2(tmp + 1, temp);
                     fseek(temp, 0, SEEK_SET);
                     // get line by line from temp and send to sserver_fd
                     // after concatenating with destination path i.e msg->file
@@ -251,19 +267,21 @@ void *handle_client(void *client_socket)
                     char *line = NULL;
                     size_t len = 0;
                     ssize_t read;
-                    int len_src = strlen(tmp+1);
+                    int len_src = strlen(tmp + 1);
                     *tmp = '\0';
 
-                    while ((read = getline(&line, &len, temp)) != -1) 
+                    while ((read = getline(&line, &len, temp)) != -1)
                     {
-                        MessageFile* msg_file = malloc(sizeof(MessageFile));
+                        MessageFile *msg_file = malloc(sizeof(MessageFile));
                         msg_file->op = OP_NS_COPY;
-                        strcpy(msg_file->file,path_concat(msg->file, line+len_src));
-                        msg_file->file[strlen(msg_file->file)-1] = '\0';
+                        strcpy(msg_file->file, path_concat(msg->file, line + len_src));
+                        msg_file->file[strlen(msg_file->file) - 1] = '\0';
+                        // create(msg, msg_file->file);
+                        ErrCode blew_code = sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
                         strcat(msg_file->file, ":");
                         strcat(msg_file->file, line);
                         // printf("Sending %s\n", msg_file->file);
-                        msg_file->file[strlen(msg_file->file)-1] = '\0';
+                        msg_file->file[strlen(msg_file->file) - 1] = '\0';
                         if (sock_send(sserver_fd, (Message *)msg_file))
                         {
                             if (sock_send(sserver_fd, (Message *)&msg_addr))
@@ -299,7 +317,6 @@ void *handle_client(void *client_socket)
                         ecode = ERR_CONN;
                     }
                 }
-                
             }
             sock_send_ack(sock, &ecode);
             break;
@@ -327,10 +344,12 @@ void *handle_client(void *client_socket)
             }
             else
             {
-                if (msg->op == OP_NS_LS) {
+                if (msg->op == OP_NS_LS)
+                {
                     ecode = ls(msg->file, temp) ? ERR_NONE : ERR_SS;
                 }
-                else {
+                else
+                {
                     ecode = ls_v2(msg->file, temp) ? ERR_NONE : ERR_SS;
                 }
                 if (ecode == ERR_NONE)

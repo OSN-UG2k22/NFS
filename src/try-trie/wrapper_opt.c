@@ -3,7 +3,14 @@
 trienode *__global_trie = NULL;
 LRU_Cache *__global_lru = NULL;
 
-char *handle_slash_v2(char *str) //dont ignore trailing '/'
+int IS_FILE(char *str)
+{
+    char *newstr = handle_slash(str);
+    int x = is_file(__global_trie, newstr);
+    free(newstr);
+    return x;
+}
+char *handle_slash_v2(char *str) // dont ignore trailing '/'
 {
     int len = (int)strlen(str);
     char *newstr = malloc((len + 3) * sizeof(char));

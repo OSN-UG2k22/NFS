@@ -14,6 +14,8 @@ pthread_mutex_t *what_the_lock(char *str); // returns a pointer to lock for that
 int ls(char* str,FILE* fp); // lists all files and subfiles
 int ls_v2(char* str,FILE* fp); // lists all files and subfiles
 int search_v2(char *str,int* is_partial);
+int IS_FILE(char *str); // returns 1 if file, 0 if directory, -1 if not found
+
 // lock(char *str)
 // unlock(char *str)
 // lock_status(char *str)

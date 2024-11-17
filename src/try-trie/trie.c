@@ -1,5 +1,23 @@
 #include "trie.h"
 
+
+int is_file(trienode *root, char *str)
+{
+    for (int i = 0; i < (int)strlen(str); i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            return -1; // invalid path
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    if (root->child[(int)'/'] == NULL)
+    {
+        return 1; // is dir
+    }
+    return 0; // is file
+}
+
 void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp, char* str)
 {
     if (node == NULL)

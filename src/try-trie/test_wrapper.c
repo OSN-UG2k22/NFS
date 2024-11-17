@@ -191,6 +191,8 @@ void test_ls_v2()
     assert(create(3, "home/abc/def/") != -1);
     assert(create(5, "home/abc/def/ghi/jkl/") != -1);
     ls_v2("home/abc/", stdout);
+    printf("--------------------------------------\n");
+    ls_v2("home/abc/def/a.txt", stdout);
 }
 
 void my_doubt()
