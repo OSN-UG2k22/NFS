@@ -234,6 +234,7 @@ void *handle_client(void *fd_ptr)
             break;
         case OP_SS_WRITE:
             operation = "write path";
+            sserver_create(msg->file);
             file = fopen(actual_path, "w");
             if (!file)
             {

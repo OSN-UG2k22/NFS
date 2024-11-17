@@ -223,6 +223,13 @@ void *handle_client(void *client_socket)
             MessageAddr msg_addr;
             msg_addr.op = OP_NS_REPLY_SS;
             char *tmp = strchr(msg->file, ':');
+            int src_exists;
+            int dest_exists;
+            src_exists = IS_FILE(tmp + 1);
+            *tmp = '\0';
+            dest_exists = IS_FILE(msg->file);
+            *tmp = ':';
+
             if (!tmp)
             {
                 ecode = ERR_REQ;
@@ -239,11 +246,19 @@ void *handle_client(void *client_socket)
             }
             if (ecode == ERR_NONE)
             {
-                if (sock_send(sserver_fd, (Message *)msg))
+                // for folder use ls_v2 and list all the files and folder in folder
+                if ((src_exists == 1 || src_exists == -1))
                 {
-                    if (sock_send(sserver_fd, (Message *)&msg_addr))
+                    if (sock_send(sserver_fd, (Message *)msg))
                     {
-                        ecode = sock_get_ack(sserver_fd);
+                        if (sock_send(sserver_fd, (Message *)&msg_addr))
+                        {
+                            ecode = sock_get_ack(sserver_fd);
+                        }
+                        else
+                        {
+                            ecode = ERR_CONN;
+                        }
                     }
                     else
                     {
@@ -252,7 +267,59 @@ void *handle_client(void *client_socket)
                 }
                 else
                 {
-                    ecode = ERR_CONN;
+                    if (dest_exists == 0 || dest_exists == -1)
+                    {
+                        if (tmp[strlen(tmp) - 1] != '/')
+                        {
+                            strcat(tmp, "/");
+                        }
+                        FILE *temp = tmpfile();
+                        ls_v2(tmp + 1, temp);
+                        fseek(temp, 0, SEEK_SET);
+                        // get line by line from temp and send to sserver_fd
+                        // after concatenating with destination path i.e msg->file
+                        // so create a new message
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+                        int len_src = strlen(tmp + 1);
+                        *tmp = '\0';
+                        if (msg->file[strlen(msg->file) - 1] != '/')
+                        {
+                            strcat(msg->file, "/");
+                        }
+
+                        while ((read = getline(&line, &len, temp)) != -1)
+                        {
+                            MessageFile *msg_file = malloc(sizeof(MessageFile));
+                            msg_file->op = OP_NS_COPY;
+                            strcpy(msg_file->file, path_concat(msg->file, line + len_src));
+                            msg_file->file[strlen(msg_file->file) - 1] = '\0';
+                            sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
+                            strcat(msg_file->file, ":");
+                            strcat(msg_file->file, line);
+                            msg_file->file[strlen(msg_file->file) - 1] = '\0';
+                            if (sock_send(sserver_fd, (Message *)msg_file))
+                            {
+                                if (sock_send(sserver_fd, (Message *)&msg_addr))
+                                {
+                                    ecode = sock_get_ack(sserver_fd);
+                                }
+                                else
+                                {
+                                    ecode = ERR_CONN;
+                                }
+                            }
+                            else
+                            {
+                                ecode = ERR_CONN;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ecode = ERR_REQ;
+                    }
                 }
             }
             sock_send_ack(sock, &ecode);
@@ -281,10 +348,12 @@ void *handle_client(void *client_socket)
             }
             else
             {
-                if (msg->op == OP_NS_LS) {
+                if (msg->op == OP_NS_LS)
+                {
                     ecode = ls(msg->file, temp) ? ERR_NONE : ERR_SS;
                 }
-                else {
+                else
+                {
                     ecode = ls_v2(msg->file, temp) ? ERR_NONE : ERR_SS;
                 }
                 if (ecode == ERR_NONE)

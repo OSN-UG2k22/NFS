@@ -3,7 +3,14 @@
 trienode *__global_trie = NULL;
 LRU_Cache *__global_lru = NULL;
 
-char *handle_slash_v2(char *str) //dont ignore trailing '/'
+int IS_FILE(char *str)
+{
+    char *newstr = handle_slash(str);
+    int x = is_file(__global_trie, newstr);
+    free(newstr);
+    return x;
+}
+char *handle_slash_v2(char *str) // dont ignore trailing '/'
 {
     int len = (int)strlen(str);
     char *newstr = malloc((len + 3) * sizeof(char));
@@ -100,16 +107,8 @@ int create(int main_server, char *str) // takes main server and string path inse
 
     if (__global_lru == NULL)
     {
-        // printf("FIRST COMMENT\n");
         __global_lru = (LRU_Cache *)malloc(sizeof(LRU_Cache));
         insert(__global_lru, main_server, newstr);
-        // __global_lru->head = NULL;
-        // __global_lru->head =
-        // __global_lru->head->hashind = main_server;
-        // // printf("FIRST COMMENT\n");
-        // strcpy(__global_lru->head->name, str);
-        // __global_lru->head->next = NULL;
-        // __global_lru->size = 1;
         return x;
     }
 

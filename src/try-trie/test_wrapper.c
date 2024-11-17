@@ -191,6 +191,8 @@ void test_ls_v2()
     assert(create(3, "home/abc/def/") != -1);
     assert(create(5, "home/abc/def/ghi/jkl/") != -1);
     ls_v2("home/abc/", stdout);
+    printf("--------------------------------------\n");
+    ls_v2("home/abc/def/a.txt", stdout);
 }
 
 void my_doubt()
@@ -234,56 +236,70 @@ void my_fix()
     assert(x == -1);
 }
 
+void Is_file(){
+    assert(create(2, "home/abc/") != -1);
+    assert(create(4, "home/abc/def/ghi/") != -1);
+    assert(create(4, "home/abc/def/a.txt") != -1);
+    assert(create(6, "home/abc/def/ghi/jkl/mno/") != -1);
+    assert(create(3, "home/abc/def/") != -1);
+    assert(create(3, "home/abc/def/abs.txt") != -1);
+    assert(create(5, "home/abc/def/ghi/jkl/") != -1);
+    assert(IS_FILE("asb")==-1);
+    assert(IS_FILE("home/abc/def/ghi/jkl/")==0);
+    assert(IS_FILE("home/abc/def/abs.txt")==1);
+}
+
 int main()
 {
-    // my_fix();
-    // test_search_new();
-    // test_search();
-    // my_doubt();
+    Is_file();
+    my_fix();
+    test_search_new();
+    test_search();
+    my_doubt();
     test_ls_v2();
-    // test_create();
-    // test_delete_file_folder();
-    // test_what_the_lock();
-    // test_ls();
-    // tough_test();
-    // test_ls();
+    test_create();
+    test_delete_file_folder();
+    test_what_the_lock();
+    test_ls();
+    tough_test();
+    test_ls();
     printf("All tests passed successfully.\n");
-    // char *path = "/example/path";
-    // char *path1 = "example";
-    // char *path2 = "example/path/";
-    // char *path3 = "/example/path/";
-    // char *result = handle_slash(path);
-    // printf("for %s function output: %s\n", path, result);
+    char *path = "/example/path";
+    char *path1 = "example";
+    char *path2 = "example/path/";
+    char *path3 = "/example/path/";
+    char *result = handle_slash(path);
+    printf("for %s function output: %s\n", path, result);
 
-    // char *result1 = handle_slash(path1);
-    // printf("for %s function output: %s\n", path1, result1);
+    char *result1 = handle_slash(path1);
+    printf("for %s function output: %s\n", path1, result1);
 
-    // char *result2 = handle_slash(path2);
-    // printf("for %s function output: %s\n", path2, result2);
+    char *result2 = handle_slash(path2);
+    printf("for %s function output: %s\n", path2, result2);
 
-    // char *result3 = handle_slash(path3);
-    // printf("for %s function output: %s\n", path3, result3);
+    char *result3 = handle_slash(path3);
+    printf("for %s function output: %s\n", path3, result3);
 
-    // create(1, "home");
-    // create(2, "home/abc");
-    // create(4, "home/abc/def/ghi");
-    // create(6, "home/abc/def/ghi/jkl/mno");
-    // create(3, "home/abc/def");
-    // create(5, "home/abc/def/ghi/jkl");
-    // create(7, "abhi");
-    // create(8, "abhiram");
-    // create(9, "abhiram/abc");
-    // create(10, "abhijeet");
-    // int x = search("home");
-    // printf("find home ouput %d\n", x);
-    // printf("find home/abc ouput %d\n", search("home/abc"));
-    // printf("find home/abc/def ouput %d\n", search("home/abc/def"));
+    create(1, "home");
+    create(2, "home/abc");
+    create(4, "home/abc/def/ghi");
+    create(6, "home/abc/def/ghi/jkl/mno");
+    create(3, "home/abc/def");
+    create(5, "home/abc/def/ghi/jkl");
+    create(7, "abhi");
+    create(8, "abhiram");
+    create(9, "abhiram/abc");
+    create(10, "abhijeet");
+    int x = search("home");
+    printf("find home ouput %d\n", x);
+    printf("find home/abc ouput %d\n", search("home/abc"));
+    printf("find home/abc/def ouput %d\n", search("home/abc/def"));
 
-    // delete_file_folder("home/abc/def");
+    delete_file_folder("home/abc/def");
 
-    // printf("find home/abc/def ouput %d\n", search("home/abc/def"));
-    // printf("find home/abc/invalid ouput %d\n", search("home/abc/invalid"));
-    // printf("find abhiram/abc ouput %d\n", search("abhiram/abc"));
+    printf("find home/abc/def ouput %d\n", search("home/abc/def"));
+    printf("find home/abc/invalid ouput %d\n", search("home/abc/invalid"));
+    printf("find abhiram/abc ouput %d\n", search("abhiram/abc"));
 
     return 0;
 }

@@ -24,3 +24,10 @@
 ### Deadline 17th November
 - 3.5 Backing up Data [70 Marks]
 - 3.6 Redundancy [BONUS][50 Marks]
+
+## Assumption
+
+- In copy command, if we already have destination folder. In regular cp command, the source folder
+  gets copied inside the destination folder. But in our implementation, the contents of the source folder get
+  copied to destination folder.
+  
