@@ -240,29 +240,50 @@ void *handle_client(void *client_socket)
             if (ecode == ERR_NONE)
             {
                 // for foldder use ls_v2 and list all the files and folder in folder
-                FILE* temp = tmpfile();
-                ls_v2(tmp+1, temp);
-                fseek(temp, 0, SEEK_SET);
-                // get line by line from temp and send to sserver_fd
-                // after concatenating with destination path i.e msg->file
-                // so create a new message
-                char *line = NULL;
-                size_t len = 0;
-                ssize_t read;
-                int len_src = strlen(tmp+1);
-                *tmp = '\0';
-
-                while ((read = getline(&line, &len, temp)) != -1) 
+                if (tmp[strlen(tmp) - 1] == '/')
                 {
-                    MessageFile* msg_file = malloc(sizeof(MessageFile));
-                    msg_file->op = OP_NS_COPY;
-                    strcpy(msg_file->file,path_concat(msg->file, line+len_src));
-                    msg_file->file[strlen(msg_file->file)-1] = '\0';
-                    strcat(msg_file->file, ":");
-                    strcat(msg_file->file, line);
-                    // printf("Sending %s\n", msg_file->file);
-                    msg_file->file[strlen(msg_file->file)-1] = '\0';
-                    if (sock_send(sserver_fd, (Message *)msg_file))
+                    FILE* temp = tmpfile();
+                    ls_v2(tmp+1, temp);
+                    fseek(temp, 0, SEEK_SET);
+                    // get line by line from temp and send to sserver_fd
+                    // after concatenating with destination path i.e msg->file
+                    // so create a new message
+                    char *line = NULL;
+                    size_t len = 0;
+                    ssize_t read;
+                    int len_src = strlen(tmp+1);
+                    *tmp = '\0';
+
+                    while ((read = getline(&line, &len, temp)) != -1) 
+                    {
+                        MessageFile* msg_file = malloc(sizeof(MessageFile));
+                        msg_file->op = OP_NS_COPY;
+                        strcpy(msg_file->file,path_concat(msg->file, line+len_src));
+                        msg_file->file[strlen(msg_file->file)-1] = '\0';
+                        strcat(msg_file->file, ":");
+                        strcat(msg_file->file, line);
+                        // printf("Sending %s\n", msg_file->file);
+                        msg_file->file[strlen(msg_file->file)-1] = '\0';
+                        if (sock_send(sserver_fd, (Message *)msg_file))
+                        {
+                            if (sock_send(sserver_fd, (Message *)&msg_addr))
+                            {
+                                ecode = sock_get_ack(sserver_fd);
+                            }
+                            else
+                            {
+                                ecode = ERR_CONN;
+                            }
+                        }
+                        else
+                        {
+                            ecode = ERR_CONN;
+                        }
+                    }
+                }
+                else
+                {
+                    if (sock_send(sserver_fd, (Message *)msg))
                     {
                         if (sock_send(sserver_fd, (Message *)&msg_addr))
                         {
