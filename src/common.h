@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <vlc/vlc.h>
 #include <inttypes.h>
-#include <fcntl.h>
+#include <sys/file.h>
 
 #define FILENAME_MAX_LEN 4096
 #define CHUNK_SIZE 1000
@@ -29,35 +29,44 @@
 #define DEFAULT_HOST "127.0.0.1"
 #define NS_DEFAULT_PORT 4269
 
+#define SS_METADATA ".ss_metadata_hidden"
+#define NS_METADATA ".ns_metadata_hidden"
+
+#define FILE_THRESHOLD 2
 /* Any message sent over the network must have one of these values in the
  * header */
 typedef enum _Operation
 {
-    OP_ACK,            /* MessageInt */
-    OP_RAW,            /* MessageChunk */
-    OP_NS_INIT_SS,     /* MessageInt */
-    OP_NS_INIT_CLIENT, /* Message */
-    OP_NS_INIT_FILE,   /* MessageFile */
-    OP_NS_CREATE,      /* MessageFile */
-    OP_NS_DELETE,      /* MessageFile */
-    OP_NS_COPY,        /* MessageFile */
-    OP_NS_GET_SS,      /* MessageFile */
-    OP_NS_REPLY_SS,    /* MessageAddr */
-    OP_NS_LS,          /* MessageFile */
-    OP_SS_READ,        /* MessageFile */
-    OP_SS_WRITE,       /* MessageFile */
-    OP_SS_INFO,        /* MessageFile */
-    OP_SS_STREAM,      /* MessageFile */
+    OP_ACK,             /* MessageInt */
+    OP_RAW,             /* MessageChunk */
+    OP_SIZE,            /* MessageInt */
+    OP_NS_INIT_SS,      /* MessageInt */
+    OP_NS_INIT_CLIENT,  /* Message */
+    OP_NS_INIT_FILE,    /* MessageFile */
+    OP_NS_CREATE,       /* MessageFile */
+    OP_NS_DELETE,       /* MessageFile */
+    OP_NS_COPY,         /* MessageFile */
+    OP_NS_GET_SS,       /* MessageFile */
+    OP_NS_GET_SS_FORCE, /* MessageFile */
+    OP_NS_REPLY_SS,     /* MessageAddr */
+    OP_NS_LS,           /* MessageFile */
+    OP_SS_READ,         /* MessageFile */
+    OP_SS_WRITE,        /* MessageFile */
+    OP_SS_INFO,         /* MessageFile */
+    OP_SS_STREAM,       /* MessageFile */
 } Operation;
 
 typedef enum _ErrCode
 {
-    ERR_NONE, /* No error, successful transaction */
-    ERR_CONN, /* Some error in connection */
-    ERR_REQ,  /* Invalid request */
-    ERR_SS,   /* Could not find SS to complete request */
-    ERR_SYNC, /* Synchronisation issue, invalid type of message recieved */
-    ERR_SYS,  /* Some system error when processing the request */
+    ERR_NONE,   /* No error, successful transaction */
+    ERR_CONN,   /* Some error in connection */
+    ERR_REQ,    /* Invalid request */
+    ERR_SS,     /* Could not find SS to complete request */
+    ERR_SYNC,   /* Synchronisation issue, invalid type of message recieved */
+    ERR_SYS,    /* Some system error when processing the request */
+    ERR_EXISTS, /* Path already exists */
+    ERR_LOCK,   /* Operation locked due to pending operation */
+    ERR_QUIET,  /* Async write told async is not needed hence don't print */
 } ErrCode;
 
 static inline char *errcode_to_str(ErrCode ecode)
@@ -71,11 +80,17 @@ static inline char *errcode_to_str(ErrCode ecode)
     case ERR_REQ:
         return "Invalid request";
     case ERR_SS:
-        return "Could not fetch storage server";
+        return "Path does not exist (or could not fetch storage server)";
     case ERR_SYNC:
         return "Synchronization issue, unexpected type of message recieved";
     case ERR_SYS:
         return "Some system error on storage server";
+    case ERR_EXISTS:
+        return "Path already exists";
+    case ERR_LOCK:
+        return "Operation rejected (locked) due to another pending operation";
+    case ERR_QUIET:
+        return "No need of asynchronous write because file size is small";
     }
     return "Invalid error code";
 }
@@ -130,6 +145,14 @@ typedef struct _SServerInfo
     uint16_t _port;
 } SServerInfo;
 
+typedef struct _AsyncWriteInfo
+{
+    FILE *outfile;
+    char *buffer;
+    int size;
+    int sock_fd;
+} AsyncWriteInfo;
+
 void ipv4_print_addr(struct sockaddr_in *addr, const char *interface);
 
 int sock_connect(char *node, uint16_t *port, PortAndID *ss_pd);
@@ -142,15 +165,13 @@ void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
 void stream_music(char *ip, uint16_t port);
-int stream_file(int client_socket, const char *filename);
+ErrCode stream_file(int client_socket, const char *filename);
 /* Path utils */
-
-#define SS_METADATA ".ss_metadata_hidden"
-#define NS_METADATA ".ns_metadata_hidden"
 
 char *path_remove_prefix(char *self, char *op);
 char *path_concat(char *first, char *second);
-ErrCode path_sock_sendfile(int sock, FILE *infile);
-ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile);
+void path_norm(char *path, int *size);
+ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite);
+ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **buffer, int *buffer_size);
 
 #endif

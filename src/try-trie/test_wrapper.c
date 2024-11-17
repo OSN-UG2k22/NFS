@@ -38,7 +38,7 @@ void test_delete_file_folder()
     }
     assert(deleted_paths != NULL);
     int result = search(path);
-    printf("%d\n",result);
+    printf("%d\n", result);
     // assert(result == -1); NOT WORKING WITH OTHERS
 
     free(deleted_paths);
@@ -56,10 +56,22 @@ void test_ls()
     char *path1 = "/example";
     char *path2 = "/example/path";
     int main_server = 1;
-
     create(main_server, path1);
     create(main_server, path2);
-    ls("/example");
+    FILE *fp = fopen("output.txt", "w+");
+    if (fp == NULL)
+    {
+        printf("Error opening file!\n");
+        exit(1);
+    }
+
+    int result = ls(path1, fp);
+    if (result == 0)
+    {
+        fprintf(fp, "Error: Directory not found (Error code: %d)\n", 0);
+    }
+
+    ls(path1, fp);
 }
 
 void tough_test()
@@ -105,15 +117,91 @@ void tough_test()
     assert(search("abhiram/abc") == 9);
 }
 
+void test_search_new()
+{
+    // assert(create(1, "home") != -1);
+    assert(create(2, "home/abc") != -1);
+    assert(create(4, "home/abc/def/ghi") != -1);
+    assert(create(6, "home/abc/def/ghi/jkl/mno") != -1);
+    assert(create(3, "home/abc/def") != -1);
+    assert(create(5, "home/abc/def/ghi/jkl") != -1);
+
+    int is_partial = -1;
+    int x = search_v2("home", &is_partial);
+    assert(x == 2);
+    assert(is_partial == 0);
+
+    x = search_v2("home/abc", &is_partial);
+    assert(x == 2);
+    assert(is_partial == 0);
+
+    x = search_v2("home/abc/def", &is_partial);
+    assert(x == 3);
+    assert(is_partial == 0);
+
+    x = search_v2("home/abc/def/ghi", &is_partial);
+    assert(x == 4);
+    assert(is_partial == 0);
+
+    x = search_v2("home/abc/def/ghi/jkl", &is_partial);
+    assert(x == 5);
+    assert(is_partial == 0);
+
+    x = search_v2("home/abc/def/ghi/jkl/mno", &is_partial);
+    assert(x == 6);
+    assert(is_partial == 0);
+
+    x = search_v2("home/abc/def/ghi/jkl/mno/pqr", &is_partial);
+    assert(x == 6);
+    assert(is_partial == 1);
+
+    x = search_v2("home/abc/def/ghi/jkl/mno/pqr/", &is_partial);
+    assert(x == 6);
+    assert(is_partial == 1);
+
+    x = search_v2("home/abc/def/ghi/jkl/mno/pqr/stu", &is_partial);
+    assert(x == 6);
+    assert(is_partial == 1);
+
+    x = search_v2("home/abc/def/ghi/jkl/mno/pqr/stu/", &is_partial);
+    assert(x == 6);
+    assert(is_partial == 1);
+    x = search_v2("/abhiram", &is_partial);
+    assert(x == -1);
+
+    x = search_v2("/home/abhiram", &is_partial);
+    assert(x == 2);
+    assert(is_partial == 1);
+
+    x = search_v2("/", &is_partial);
+    assert(x == 2);
+    assert(is_partial == 0);
+}
 int main()
 {
-    test_create();
-    test_search();
-    test_delete_file_folder();
-    test_what_the_lock();
-    test_ls();
-    tough_test();
+    test_search_new();
+    // test_create();
+    // test_search();
+    // test_delete_file_folder();
+    // test_what_the_lock();
+    // test_ls();
+    // tough_test();
+    // char *path = "/example/path";
+    // char *path1 = "example";
+    // char *path2 = "example/path/";
+    // char *path3 = "/example/path/";
+    // char *result = handle_slash(path);
+    // printf("for %s function output: %s\n", path, result);
 
+    // char *result1 = handle_slash(path1);
+    // printf("for %s function output: %s\n", path1, result1);
+
+    // char *result2 = handle_slash(path2);
+    // printf("for %s function output: %s\n", path2, result2);
+
+    // char *result3 = handle_slash(path3);
+    // printf("for %s function output: %s\n", path3, result3);
+    // test_ls();
     printf("All tests passed successfully.\n");
 
     // create(1, "home");

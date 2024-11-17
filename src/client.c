@@ -1,5 +1,21 @@
 #include "common.h"
 
+void *handle_async(void *sock_server_ptr)
+{
+    int sock_server = *((int *)sock_server_ptr);
+    ErrCode ret = sock_get_ack(sock_server);
+    if (ret == ERR_NONE)
+    {
+        printf("\n[SELF] Asynchronous operation succeeded\n");
+    }
+    else
+    {
+        printf("[SELF] Asynchronous operation failed: %s\n", errcode_to_str(ret));
+    }
+    close(sock_server);
+    return NULL;
+}
+
 int main(int argc, char *argv[])
 {
     char *nserver_host = DEFAULT_HOST;
@@ -24,6 +40,7 @@ int main(int argc, char *argv[])
     {
         printf("List of supported commands:\n");
         printf("- READ [path]:[optional local file to write contents to]\n");
+        printf("- PWRITE [path]:[optional local file to read contents from] (this is the --SYNC implementation)\n");
         printf("- WRITE [path]:[optional local file to read contents from]\n");
         printf("- STREAM [path]\n");
         printf("- INFO [path]\n");
@@ -60,7 +77,7 @@ int main(int argc, char *argv[])
             request.file[arg_len] = '\0';
 
             char *arg2 = NULL;
-            if (strcasecmp(op, "READ") == 0 || strcasecmp(op, "WRITE") == 0)
+            if (strcasecmp(op, "READ") == 0 || strcasecmp(op, "WRITE") == 0 || strcasecmp(op, "PWRITE") == 0)
             {
                 arg2 = strchr(request.file, ':');
                 if (arg2)
@@ -90,9 +107,18 @@ int main(int argc, char *argv[])
             {
                 request.op = OP_NS_DELETE;
             }
+            else if (strcasecmp(op, "WRITE") == 0 || strcasecmp(op, "PWRITE") == 0)
+            {
+                request.op = OP_NS_GET_SS_FORCE;
+            }
             else
             {
                 request.op = OP_NS_GET_SS;
+            }
+            if (request.op == OP_NS_LS)
+            {
+                ret = path_sock_getfile(sock_fd, (Message *)&request, stdout, NULL, NULL);
+                goto end_loop;
             }
 
             ret = sock_send(sock_fd, (Message *)&request) ? ERR_NONE : ERR_CONN;
@@ -100,14 +126,9 @@ int main(int argc, char *argv[])
             {
                 goto end_loop;
             }
-            if (request.op == OP_NS_LS)
-            {
-                // write logic here
-                continue;
-            }
             ret = sock_get_ack(sock_fd);
             MessageAddr *ss_addr = NULL;
-            if (ret == ERR_NONE && request.op == OP_NS_GET_SS)
+            if (ret == ERR_NONE && (request.op == OP_NS_GET_SS || request.op == OP_NS_GET_SS_FORCE))
             {
                 ss_addr = (MessageAddr *)sock_get(sock_fd);
                 if (ss_addr)
@@ -142,7 +163,7 @@ int main(int argc, char *argv[])
                 {
                     int sock_server = sock_connect_addr(&ss_addr->addr);
                     request.op = OP_SS_READ;
-                    ret = path_sock_getfile(sock_server, (Message *)&request, outfile);
+                    ret = path_sock_getfile(sock_server, (Message *)&request, outfile, NULL, NULL);
                     if (outfile != stdout)
                     {
                         fclose(outfile);
@@ -150,8 +171,9 @@ int main(int argc, char *argv[])
                     close(sock_server);
                 }
             }
-            else if (strcasecmp(op, "WRITE") == 0)
+            else if (strcasecmp(op, "PWRITE") == 0 || strcasecmp(op, "WRITE") == 0)
             {
+                int pwrite = (strcasecmp(op, "PWRITE") == 0);
                 FILE *infile = arg2 ? fopen(arg2, "r") : stdin;
                 if (!infile)
                 {
@@ -171,13 +193,22 @@ int main(int argc, char *argv[])
                     }
                     if (ret == ERR_NONE)
                     {
-                        ret = path_sock_sendfile(sock_server, infile);
+                        ret = path_sock_sendfile(sock_server, infile, pwrite);
                     }
                     if (infile != stdin)
                     {
                         fclose(infile);
                     }
-                    close(sock_server);
+                    if (ret == ERR_QUIET)
+                    {
+                        pthread_t tid;
+                        pthread_create(&tid, NULL, handle_async, (void *)&sock_server);
+                        pthread_detach(tid);
+                    }
+                    else
+                    {
+                        close(sock_server);
+                    }
                 }
             }
             else if (strcasecmp(op, "STREAM") == 0)
@@ -191,12 +222,16 @@ int main(int argc, char *argv[])
                 request.op = OP_SS_STREAM;
                 sock_send(sock_server, (Message *)&request);
                 MessageInt *port_msg = (MessageInt *)sock_get(sock_server);
-                if (port_msg->op != OP_ACK)
+                if (!port_msg || port_msg->op != OP_ACK)
                 {
-                    // error
+                    ret = ERR_CONN;
                 }
-                sleep(1);
-                stream_music(ip, port_msg->info);
+                else
+                {
+                    sleep(1);
+                    stream_music(ip, port_msg->info);
+                    ret = sock_get_ack(sock_server);
+                }
                 close(sock_server);
             }
             else if (strcasecmp(op, "INFO") == 0)
@@ -210,8 +245,8 @@ int main(int argc, char *argv[])
                 {
                     int sock_server = sock_connect_addr(&ss_addr->addr);
                     request.op = OP_SS_INFO;
-                    printf("%s ", request.file);
-                    ret = path_sock_getfile(sock_server, (Message *)&request, outfile);
+                    printf("%s \n", request.file);
+                    ret = path_sock_getfile(sock_server, (Message *)&request, outfile, NULL, NULL);
                     if (outfile != stdout)
                     {
                         fclose(outfile);
@@ -229,10 +264,13 @@ int main(int argc, char *argv[])
             {
                 printf("[SELF] Operation succeeded\n");
             }
+            else if (ret == ERR_QUIET)
+            {
+                printf("[SELF] Asynchronous operation started and pending\n");
+            }
             else
             {
                 printf("[SELF] Operation failed: %s\n", errcode_to_str(ret));
-                continue;
             }
         }
     }

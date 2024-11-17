@@ -1,5 +1,59 @@
 #include "trie.h"
 
+int find_subtree_new(trienode *node) // returns what server it is in
+{
+    if (node == NULL)
+    {
+        return -1;
+    }
+    if (node->hashind != -1)
+    {
+        return node->hashind;
+    }
+    for (int i = 0; i < 256; i++)
+    {
+        if (node->child[i] != NULL)
+        {
+            int y = find_subtree_new(node->child[i]);
+            if (y != -1)
+            {
+                return y;
+            }
+        }
+    }
+    return -1;
+}
+
+int find_new(trienode *root, char *str, int *is_partial)
+{
+    if (root == NULL)
+    {
+        return -1;
+    }
+
+    for (int i = 0; i < (int)strlen(str); i++)
+    {
+        if (root->child[(unsigned char)str[i]] == NULL)
+        {
+            *is_partial = 1;               // path didnt match complete
+            if (i==1)
+            {
+                *is_partial = 1;
+                return -1;
+            }
+            return find_subtree_new(root); // return what server it is in
+        }
+        root = root->child[(unsigned char)str[i]];
+    }
+    // it matched completely
+    *is_partial = 0;
+    if (!root->lastnode)
+    {
+        return find_subtree_new(root); // and is in this server
+    }
+    return root->hashind;
+}
+
 trienode *newnode()
 {
     // printf("DEBUG MESSAGE : AA GYA YHN M\n");
@@ -181,18 +235,18 @@ pthread_mutex_t *lock_in_trie(trienode *root, char *str)
     }
 }
 
-void print_all_subtree(trienode *node, char *path, int level)
+void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
 {
     if (node == NULL)
     {
         return;
     }
 
-    if (node->hashind != -1)
+    if (node->hashind != -1 || node->child[(int)'/'] != NULL)
     {
         path[level] = '\0';
         // printf("%s (hashind: %d)\n", path, node->hashind);
-        printf("%s\n", path);
+        fprintf(fp, "%s\n", path);
     }
 
     for (int i = 0; i < 256; i++)
@@ -207,44 +261,38 @@ void print_all_subtree(trienode *node, char *path, int level)
         if (node->child[i] != NULL)
         {
             path[level] = (char)i; // Append the character to the current path
-            print_all_subtree(node->child[i], path, level + 1);
+            print_all_subtree(node->child[i], path, level + 1, fp);
         }
     }
 }
 
-void print_all_childs(trienode *root, char *str)
+int print_all_childs(trienode *root, char *str, FILE *fp)
 {
-    // printf("IN print_all_childs function\n");
+    int len = (int)strlen(str);
 
-    for (int i = 0; i < (int)strlen(str); i++)
+    for (int i = 0; i < len; i++)
     {
         if (root->child[(unsigned char)str[i]] == NULL)
         {
-            printf("Directory not found\n");
-            return;
+            return 0;
         }
         root = root->child[(unsigned char)str[i]];
     }
     char path[256];
-    for (int i = 0; i < 256; i++)
-    {
-        char c = (char)i;
-        if (c == '/')
-        {
-            continue;
-            // printf("%s\n", str);
-            // return;
-        }
-        if (root->child[i])
-            print_all_childs(root->child[i], path);
-    }
-
     if (root->child[(int)'/'] == NULL)
     {
-        // printf("%s\n", str);
-        return;
+        if (root->hashind != -1)
+        {
+            fprintf(fp, "%s\n", str);
+        }
+        else
+        {
+            return 0;
+        }
+        return 1;
     }
     root = root->child[(int)'/'];
 
-    print_all_subtree(root, path, 0);
+    print_all_subtree(root, path, 0, fp);
+    return 1;
 }

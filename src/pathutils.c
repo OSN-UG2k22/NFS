@@ -73,9 +73,43 @@ char *path_concat(char *first, char *second)
 }
 
 /* Returns a char buffer that should be freed by caller, or NULL on failure */
-ErrCode path_sock_sendfile(int sock, FILE *infile)
+ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite)
 {
+    int fd = -1;
+    int sz = -1;
     ErrCode ret = infile ? ERR_NONE : ERR_SYS;
+    if (infile && infile != stdin)
+    {
+        fd = fileno(infile);
+        if (fd == -1)
+        {
+            perror("[SELF] Error getting file descriptor");
+            ret = ERR_NONE;
+        }
+        else
+        {
+            if (flock(fd, LOCK_SH | LOCK_NB) == -1)
+            {
+                fd = -1;
+                ret = ERR_LOCK;
+            }
+        }
+        if (ret == ERR_NONE && !pwrite)
+        {
+            fseek(infile, 0L, SEEK_END);
+            sz = ftell(infile);
+            rewind(infile);
+        }
+    }
+
+    MessageInt msg_size;
+    msg_size.info = sz;
+    msg_size.op = OP_SIZE;
+    if (!sock_send(sock, (Message *)&msg_size))
+    {
+        ret = ERR_CONN;
+    }
+
     MessageChunk chunk;
     chunk.op = OP_RAW;
     while (ret == ERR_NONE)
@@ -96,17 +130,78 @@ ErrCode path_sock_sendfile(int sock, FILE *infile)
         ret = sock_get_ack(sock);
     }
 end:
+    if (fd >= 0)
+    {
+        if (flock(fd, LOCK_UN) == -1)
+        {
+            ret = ERR_LOCK;
+        }
+    }
     sock_send_ack(sock, &ret);
-    return ret;
+    return sock_get_ack(sock);
 }
 
-ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
+ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **buffer, int *buffer_size)
 {
+    int fd = -1;
     ErrCode ret = outfile ? ERR_NONE : ERR_SYS;
+    if (outfile && outfile != stdout)
+    {
+        fd = fileno(outfile);
+        if (fd == -1)
+        {
+            perror("[SELF] Error getting file descriptor");
+            ret = ERR_NONE;
+        }
+        else
+        {
+            if (flock(fd, LOCK_EX | LOCK_NB) == -1)
+            {
+                fd = -1;
+                ret = ERR_LOCK;
+            }
+        }
+    }
+
+    /* If we are sending ack packet, set error */
+    if (msg_header->op == OP_ACK)
+    {
+        ((MessageInt *)msg_header)->info = ret;
+    }
+
     if (!sock_send(sock, msg_header))
     {
         ret = ERR_CONN;
     }
+
+    if (buffer_size)
+    {
+        *buffer_size = -1;
+    }
+    MessageInt *msg_size = (MessageInt *)sock_get(sock);
+    if (!msg_size || msg_size->op != OP_SIZE)
+    {
+        ret = ERR_CONN;
+    }
+    else
+    {
+        if (buffer_size)
+        {
+            *buffer_size = msg_size->info;
+        }
+    }
+
+    char *cur_buffer = NULL;
+    if (buffer && buffer_size && *buffer_size > FILE_THRESHOLD)
+    {
+        *buffer = malloc(*buffer_size);
+        if (!*buffer)
+        {
+            ret = ERR_SYS;
+        }
+        cur_buffer = *buffer;
+    }
+
     while (ret == ERR_NONE)
     {
         Message *read_data = sock_get(sock);
@@ -122,9 +217,100 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile)
             break;
         }
         MessageChunk *read_chunk = (MessageChunk *)read_data;
-        fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
+        if (cur_buffer)
+        {
+            memcpy(cur_buffer, read_chunk->chunk, read_chunk->size);
+            cur_buffer += read_chunk->size;
+        }
+        else
+        {
+            fwrite(read_chunk->chunk, 1, read_chunk->size, outfile);
+        }
         free(read_data);
         sock_send_ack(sock, &ret);
     }
+    if (cur_buffer)
+    {
+        /* Async write */
+        ret = ERR_QUIET;
+    }
+    else
+    {
+        /* Sync write */
+        if (fd >= 0)
+        {
+            if (flock(fd, LOCK_UN) == -1)
+            {
+                perror("[SELF] Error unlocking file");
+                ret = ERR_LOCK;
+            }
+        }
+    }
+    sock_send_ack(sock, &ret);
     return ret;
+}
+
+/* Normalize a path, dealing with ., .. and repeated / */
+void path_norm(char *path, int *size)
+{
+    int length = strlen(path);
+    int write = 0;
+    int read = 0;
+    while (read < length)
+    {
+        while (path[read] == '/' && read < length)
+        {
+            read++;
+        }
+        int name = read;
+        while (read < length && path[read] != '/')
+        {
+            read++;
+        }
+
+        int name_len = read - name;
+        if (name_len == 0 || (name_len == 1 && path[name] == '.'))
+        {
+            continue;
+        }
+
+        if (name_len == 2 && path[name] == '.' && path[name + 1] == '.')
+        {
+            if (write > 0)
+            {
+                write--;
+                while (write > 0 && path[write - 1] != '/')
+                {
+                    write--;
+                }
+            }
+            continue;
+        }
+        if (write > 0 && path[write - 1] != '/')
+        {
+            path[write++] = '/';
+        }
+        for (int i = 0; i < name_len; i++)
+        {
+            path[write++] = path[name + i];
+        }
+    }
+
+    if (write == 0)
+    {
+        path[write++] = '/';
+    }
+    else
+    {
+        while (write > 0 && path[write - 1] == '/')
+        {
+            write--;
+        }
+    }
+
+    if (size)
+    {
+        *size = write;
+    }
+    path[write] = '\0';
 }

@@ -3,12 +3,19 @@
 char *storage_path = NULL;
 
 /* Returns 1 on success, 0 on error */
-int _sserver_send_files(int sock, MessageFile *cur)
+int _sserver_send_files(int sock, char *parent, MessageFile *cur)
 {
     struct dirent *entry;
-    DIR *dir = opendir(cur->file);
+    char *actual_path = path_concat(parent, cur->file);
+    if (!actual_path)
+    {
+        return 0;
+    }
+
+    DIR *dir = opendir(actual_path);
     if (!dir)
     {
+        free(actual_path);
         switch (errno)
         {
         case EACCES:
@@ -25,6 +32,7 @@ int _sserver_send_files(int sock, MessageFile *cur)
             return 0;
         }
     }
+    free(actual_path);
 
     int ret = 1;
     while ((entry = readdir(dir)) != NULL)
@@ -41,7 +49,7 @@ int _sserver_send_files(int sock, MessageFile *cur)
             continue;
         }
 
-        if (!_sserver_send_files(sock, &new))
+        if (!_sserver_send_files(sock, parent, &new))
         {
             ret = 0;
             break;
@@ -52,11 +60,10 @@ int _sserver_send_files(int sock, MessageFile *cur)
 }
 
 /* Returns 1 on success, 0 on error */
-int sserver_send_files(int sock, const char *path)
+int sserver_send_files(int sock, char *path)
 {
-    MessageFile cur;
-    strcpy(cur.file, path);
-    int ret = _sserver_send_files(sock, &cur);
+    MessageFile cur = {0};
+    int ret = _sserver_send_files(sock, path, &cur);
 
     /* Send empty file to signal end */
     cur.op = OP_NS_INIT_FILE;
@@ -152,6 +159,30 @@ ErrCode sserver_delete(char *input_file_path)
     return ret;
 }
 
+void *handle_async(void *arg)
+{
+    AsyncWriteInfo *info = (AsyncWriteInfo *)arg;
+    ErrCode err = ERR_NONE;
+    size_t written_bytes = fwrite(info->buffer, 1, info->size, info->outfile);
+    if (written_bytes != (size_t)info->size)
+    {
+        err = ERR_SYS;
+    }
+    if (flock(fileno(info->outfile), LOCK_UN) == -1)
+    {
+        perror("[SELF] Error unlocking file");
+        err = ERR_SYS;
+    }
+    free(info->buffer);
+    if (info->outfile)
+    {
+        fclose(info->outfile);
+    }
+    sock_send_ack(info->sock_fd, &err);
+    free(info);
+    return NULL;
+}
+
 void *handle_client(void *fd_ptr)
 {
     int sock_fd = (int)(intptr_t)fd_ptr;
@@ -176,7 +207,7 @@ void *handle_client(void *fd_ptr)
                 perror("[SELF] Could not open file");
                 ecode = ERR_SYS;
             }
-            ecode = path_sock_sendfile(sock_fd, file);
+            ecode = path_sock_sendfile(sock_fd, file, 1);
             if (file)
             {
                 fclose(file);
@@ -193,10 +224,27 @@ void *handle_client(void *fd_ptr)
             MessageInt ack;
             ack.op = OP_ACK;
             ack.info = ecode;
-            ecode = path_sock_getfile(sock_fd, (Message *)&ack, file);
-            if (file)
+            char *buffer = NULL;
+            int buffer_size = -1;
+            ecode = path_sock_getfile(sock_fd, (Message *)&ack, file, &buffer, &buffer_size);
+            if (buffer)
             {
-                fclose(file);
+                AsyncWriteInfo *arg = malloc(sizeof(AsyncWriteInfo));
+                arg->outfile = file;
+                arg->buffer = buffer;
+                arg->size = buffer_size;
+                arg->sock_fd = sock_fd;
+                /* Async write code */
+                pthread_t thread_id;
+                pthread_create(&thread_id, NULL, handle_async, arg);
+                pthread_detach(thread_id);
+            }
+            else
+            {
+                if (file)
+                {
+                    fclose(file);
+                }
             }
             break;
         case OP_SS_STREAM:
@@ -209,7 +257,6 @@ void *handle_client(void *fd_ptr)
             MessageInt port_msg;
             port_msg.op = OP_ACK;
             port_msg.info = port;
-            printf("dEBUG1\n");
             ecode = sock_send(sock_fd, (Message *)&port_msg);
             if (!ecode)
             {
@@ -221,37 +268,54 @@ void *handle_client(void *fd_ptr)
             // while (1) {
             struct sockaddr_in client_addr;
             socklen_t client_len = sizeof(client_addr);
-            printf("dEBUG2\n");
             int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
-
             if (client_socket < 0)
             {
-                close(server_socket);
                 ecode = ERR_CONN;
-                break;
             }
-
-            stream_file(client_socket, actual_path);
-            close(client_socket);
+            else
+            {
+                ecode = stream_file(client_socket, actual_path);
+                close(client_socket);
+            }
+            sock_send_ack(sock_fd, &ecode);
             close(server_socket);
             break;
         case OP_SS_INFO:
             operation = "info of path";
             // use ls -l program to get file(actual_path) info
             // scrape size last modified date and name and permissions from it and send it to client
-            char command[256];
-            snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
-            file = popen(command, "r");
-            if (!file)
+            // char command[256];
+            // snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
+            // file = popen(command, "r");
+            // if (!file)
+            // {
+            //     perror("[SELF] Could not open file");
+            //     ecode = ERR_SYS;
+            // }
+            FILE *temp = tmpfile();
+            if (!temp)
             {
-                perror("[SELF] Could not open file");
+                perror("[SELF] Could not create temporary file for processing");
                 ecode = ERR_SYS;
             }
-            ecode = path_sock_sendfile(sock_fd, file);
+            file = fopen(actual_path, "r");
+            struct stat st;
+            fstat(fileno(file), &st);
+            fprintf(temp,"Permissions: %o\n", st.st_mode & 0777);
+            fprintf(temp,"Size: %ld bytes\n", st.st_size);
+            fprintf(temp,"Last modified: %s", ctime(&st.st_mtime));
+            fprintf(temp,"Last accessed: %s", ctime(&st.st_atime));
+            fprintf(temp,"Creation time: %s", ctime(&st.st_ctime));
+            rewind(temp);
+            ecode = path_sock_sendfile(sock_fd, temp, 1);
+            if (temp)
+                fclose(temp);
             if (file)
             {
-                pclose(file);
+                fclose(file);
             }
+
             break;
         default:
             /* Invalid OP at this case */
@@ -353,7 +417,7 @@ void *handle_ns(void *ns_fd_ptr)
                 ecode = sock_send(dst_sock, (Message *)msg) ? sock_get_ack(dst_sock) : ERR_CONN;
                 if (ecode == ERR_NONE)
                 {
-                    ecode = path_sock_sendfile(dst_sock, src_file);
+                    ecode = path_sock_sendfile(dst_sock, src_file, 1);
                 }
                 fclose(src_file);
                 close(dst_sock);

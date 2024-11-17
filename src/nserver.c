@@ -1,10 +1,37 @@
 #include "common.h"
+#include "try-trie/wrapper_opt.h"
 
 pthread_mutex_t sservers_lock = PTHREAD_MUTEX_INITIALIZER;
 SServerInfo sservers[NS_MAX_CONN] = {0};
 int16_t sservers_count = 0;
 
 char *nserver_meta_path = NULL;
+
+int *give_me_backup(int x)
+{
+    int *ret = malloc(sizeof(int) * 2);
+    if (x == 0)
+    {
+        ret[0] = 1;
+        ret[1] = 2;
+    }
+    else if (x == 1)
+    {
+        ret[0] = 1;
+        ret[1] = 2;
+    }
+    else
+    {
+        ret[0] = x - 1;
+        ret[1] = x - 2;
+    }
+    if (sservers_count < 3)
+    {
+        ret[0] = -1;
+        ret[1] = -1;
+    }
+    return ret;
+}
 
 SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_fd)
 {
@@ -43,24 +70,61 @@ end:
     return ret;
 }
 
-ErrCode sserver_random(int *sock_fd)
+ErrCode _sserver_random(char *path, int *sserver_id)
 {
-    int ret = ERR_NONE;
-    pthread_mutex_lock(&sservers_lock);
-    /* TODO: actual implementation */
-    if (!sservers[0].is_used)
+    int ret = ERR_SS;
+
+    /* First try random */
+    int rand_id;
+    for (int try = 0; try < NS_MAX_CONN; try++)
     {
-        ret = ERR_SS;
+        rand_id = rand() % sservers_count;
+        if (sservers[rand_id].is_used)
+        {
+            ret = ERR_NONE;
+            break;
+        }
     }
-    else
+
+    /* If random fails try all SS */
+    if (ret != ERR_NONE)
     {
-        *sock_fd = sservers[0].sock_fd;
+        for (rand_id = 0; rand_id < NS_MAX_CONN; rand_id++)
+        {
+            if (sservers[rand_id].is_used)
+            {
+                ret = ERR_NONE;
+                break;
+            }
+        }
+    }
+
+    if (ret == ERR_NONE)
+    {
+        ret = (create(rand_id, path) < 0) ? ERR_EXISTS : ERR_NONE;
+        if (ret == ERR_NONE)
+        {
+            *sserver_id = rand_id;
+        }
+    }
+    return ret;
+}
+
+ErrCode sserver_random(char *path, int *sock_fd)
+{
+    int sserver_id = -1;
+    int ret = ERR_SS;
+    pthread_mutex_lock(&sservers_lock);
+    ret = _sserver_random(path, &sserver_id);
+    if (ret == ERR_NONE && sserver_id >= 0)
+    {
+        *sock_fd = sservers[sserver_id].sock_fd;
     }
     pthread_mutex_unlock(&sservers_lock);
     return ret;
 }
 
-ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
+ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int force_create, int with_delete)
 {
     int ret = ERR_NONE;
     if (!path || !path[0])
@@ -69,20 +133,33 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr)
     }
 
     pthread_mutex_lock(&sservers_lock);
-    /* TODO: actual implementation */
-    if (!sservers[0].is_used)
+    int is_partial = 0;
+    int sserver_id = with_delete ? delete_file_folder(path) : search_v2(path, &is_partial);
+    if (sserver_id < 0)
     {
-        ret = ERR_SS;
+        ret = force_create ? _sserver_random(path, &sserver_id) : ERR_SS;
     }
-    else
+    else if (is_partial)
+    {
+        if (force_create)
+        {
+            ret = (create(sserver_id, path) < 0) ? ERR_EXISTS : ERR_NONE;
+        }
+        else
+        {
+            ret = ERR_SS;
+        }
+    }
+
+    if (ret == ERR_NONE)
     {
         if (addr)
         {
-            *addr = sservers[0].addr;
+            *addr = sservers[sserver_id].addr;
         }
         if (sock_fd)
         {
-            *sock_fd = sservers[0].sock_fd;
+            *sock_fd = sservers[sserver_id].sock_fd;
         }
     }
     pthread_mutex_unlock(&sservers_lock);
@@ -107,7 +184,7 @@ void *handle_client(void *client_socket)
         {
         case OP_NS_CREATE:
             operation = "create path";
-            ecode = sserver_random(&sserver_fd);
+            ecode = sserver_random(msg->file, &sserver_fd);
             if (ecode == ERR_NONE)
             {
                 if (sock_send(sserver_fd, (Message *)msg))
@@ -118,12 +195,16 @@ void *handle_client(void *client_socket)
                 {
                     ecode = ERR_CONN;
                 }
+                if (ecode != ERR_NONE)
+                {
+                    delete_file_folder(msg->file);
+                }
             }
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_DELETE:
             operation = "delete path";
-            ecode = sserver_by_path(msg->file, &sserver_fd, NULL);
+            ecode = sserver_by_path(msg->file, &sserver_fd, NULL, 0, 1);
             if (ecode == ERR_NONE)
             {
                 if (sock_send(sserver_fd, (Message *)msg))
@@ -149,10 +230,10 @@ void *handle_client(void *client_socket)
             else
             {
                 *tmp = '\0';
-                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr);
+                ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr, 1, 0);
                 if (ecode == ERR_NONE)
                 {
-                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL);
+                    ecode = sserver_by_path(tmp + 1, &sserver_fd, NULL, 0, 0);
                 }
                 *tmp = ':';
             }
@@ -177,10 +258,11 @@ void *handle_client(void *client_socket)
             sock_send_ack(sock, &ecode);
             break;
         case OP_NS_GET_SS:
+        case OP_NS_GET_SS_FORCE:
             operation = "get SS";
             MessageAddr reply_addr;
             reply_addr.op = OP_NS_REPLY_SS;
-            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr);
+            ecode = sserver_by_path(msg->file, NULL, &reply_addr.addr, msg->op == OP_NS_GET_SS_FORCE, 0);
             sock_send_ack(sock, &ecode);
             if (ecode == ERR_NONE)
             {
@@ -189,7 +271,27 @@ void *handle_client(void *client_socket)
             break;
         case OP_NS_LS:
             operation = "list dir";
-            sock_send_ack(sock, &ecode);
+            FILE *temp = tmpfile();
+            if (!temp)
+            {
+                perror("[SELF] Could not create temporary file for processing");
+                ecode = ERR_SYS;
+                sock_send_ack(sock, &ecode);
+            }
+            else
+            {
+                ecode = ls(msg->file, temp) ? ERR_NONE : ERR_SS;
+                if (ecode == ERR_NONE)
+                {
+                    fseek(temp, 0, SEEK_SET);
+                    ecode = path_sock_sendfile(sock, temp, 1);
+                }
+                else
+                {
+                    sock_send_ack(sock, &ecode);
+                }
+                fclose(temp);
+            }
             break;
         default:
             /* Invalid OP at this case */
@@ -246,6 +348,7 @@ void *handle_ss(void *sserver_void)
             free(msg);
             break;
         }
+        create(sserver->id, msg->file);
         printf("[STORAGE SERVER %d] Has file '%s'\n", sserver->id, msg->file);
         free(msg);
     }
