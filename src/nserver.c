@@ -223,7 +223,6 @@ void *handle_client(void *client_socket)
             MessageAddr msg_addr;
             msg_addr.op = OP_NS_REPLY_SS;
             char *tmp = strchr(msg->file, ':');
-            char *tmp2 = strdup(msg->file);
             int src_exists;
             int dest_exists;
             src_exists = IS_FILE(tmp + 1);
@@ -249,7 +248,6 @@ void *handle_client(void *client_socket)
             {
                 // for foldder use ls_v2 and list all the files and folder in folder
 
-                // IS_FILE(tmp2) == 0 means it is a folder
                 printf("dest_exists %d src_exists %d\n", dest_exists, src_exists);
                 if ((src_exists == 1 || src_exists == -1))
                 {
@@ -299,11 +297,9 @@ void *handle_client(void *client_socket)
                             msg_file->op = OP_NS_COPY;
                             strcpy(msg_file->file, path_concat(msg->file, line + len_src));
                             msg_file->file[strlen(msg_file->file) - 1] = '\0';
-                            // create(msg, msg_file->file);
                             ErrCode blew_code = sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
                             strcat(msg_file->file, ":");
                             strcat(msg_file->file, line);
-                            // printf("Sending %s\n", msg_file->file);
                             msg_file->file[strlen(msg_file->file) - 1] = '\0';
                             if (sock_send(sserver_fd, (Message *)msg_file))
                             {

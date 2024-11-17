@@ -5,7 +5,6 @@ int is_file(trienode *root, char *str)
 {
     for (int i = 0; i < (int)strlen(str); i++)
     {
-        printf("abi %c\n", str[i]);
         if (root->child[(unsigned char)str[i]] == NULL)
         {
             return -1; // invalid path
@@ -133,13 +132,10 @@ int find_new(trienode *root, char *str, int *is_partial)
 }
 trienode *newnode()
 {
-    // printf("DEBUG MESSAGE : AA GYA YHN M\n");
     trienode *node = (trienode *)malloc(sizeof(trienode));
-    // printf("DEBUG MESSAGE : YHN NHI AAYA M\n");
     node->lastnode = false;
     if (pthread_mutex_init(&node->lock, NULL) != 0)
     {
-        printf("\n mutex init has failed\n");
         return NULL;
     }
     node->hashind = -1;
@@ -322,7 +318,6 @@ void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
     if (node->hashind != -1 || node->child[(int)'/'] != NULL)
     {
         path[level] = '\0';
-        // printf("%s (hashind: %d)\n", path, node->hashind);
         fprintf(fp, "%s\n", path);
     }
 
@@ -332,8 +327,6 @@ void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
         if (c == '/')
         {
             continue;
-            // printf("%s\n", str);
-            // return;
         }
         if (node->child[i] != NULL)
         {
