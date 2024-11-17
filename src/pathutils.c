@@ -320,7 +320,7 @@ void path_norm(char *path, int *size)
         }
     }
 
-    if (write == 0)
+    if (write == 0 || (path[length - 1] == '/' && path[write - 1] != '/'))
     {
         path[write++] = '/';
     }

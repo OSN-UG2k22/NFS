@@ -96,14 +96,33 @@ ErrCode sserver_create(char *input_file_path)
         }
         *p = '/';
     }
-    FILE *file = fopen(file_path, "w");
-    free(file_path);
-    if (!file)
+    size_t fsize = strlen(file_path);
+    if (fsize && file_path[fsize - 1] == '/')
     {
-        return ERR_SYS;
+        /* Create dir */
+        if (mkdir(file_path, 0755) == -1)
+        {
+            if (errno != EEXIST)
+            {
+                free(file_path);
+                return ERR_SYS;
+            }
+        }
+        free(file_path);
+    }
+    else
+    {
+        /* Create file */
+        FILE *file = fopen(file_path, "w");
+        free(file_path);
+        if (!file)
+        {
+            return ERR_SYS;
+        }
+
+        fclose(file);
     }
 
-    fclose(file);
     return ERR_NONE;
 }
 
@@ -302,11 +321,11 @@ void *handle_client(void *fd_ptr)
             file = fopen(actual_path, "r");
             struct stat st;
             fstat(fileno(file), &st);
-            fprintf(temp,"Permissions: %o\n", st.st_mode & 0777);
-            fprintf(temp,"Size: %ld bytes\n", st.st_size);
-            fprintf(temp,"Last modified: %s", ctime(&st.st_mtime));
-            fprintf(temp,"Last accessed: %s", ctime(&st.st_atime));
-            fprintf(temp,"Creation time: %s", ctime(&st.st_ctime));
+            fprintf(temp, "Permissions: %o\n", st.st_mode & 0777);
+            fprintf(temp, "Size: %ld bytes\n", st.st_size);
+            fprintf(temp, "Last modified: %s", ctime(&st.st_mtime));
+            fprintf(temp, "Last accessed: %s", ctime(&st.st_atime));
+            fprintf(temp, "Creation time: %s", ctime(&st.st_ctime));
             rewind(temp);
             ecode = path_sock_sendfile(sock_fd, temp, 1);
             if (temp)
