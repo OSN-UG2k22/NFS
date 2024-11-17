@@ -237,10 +237,10 @@ void my_fix()
 int main()
 {
     // my_fix();
-    test_search_new();
+    // test_search_new();
     // test_search();
     // my_doubt();
-    // test_ls_v2();
+    test_ls_v2();
     // test_create();
     // test_delete_file_folder();
     // test_what_the_lock();

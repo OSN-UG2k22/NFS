@@ -1,6 +1,6 @@
 #include "trie.h"
 
-void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp)
+void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp, char* str)
 {
     if (node == NULL)
     {
@@ -10,6 +10,7 @@ void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp)
     if (node->hashind != -1)
     {
         path[level] = '\0';
+        fprintf(fp, "%s", str);
         fprintf(fp, "%s\n", path);
     }
 
@@ -19,7 +20,7 @@ void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp)
         if (node->child[i] != NULL)
         {
             path[level] = (char)i; // Append the character to the current path
-            print_all_subtree_complete(node->child[i], path, level + 1, fp);
+            print_all_subtree_complete(node->child[i], path, level + 1, fp, str);
         }
     }
 }
@@ -37,7 +38,7 @@ int print_all_childs_v2(trienode *root, char *str, FILE *fp)
     }
     char path[256];
 
-    print_all_subtree_complete(root, path, 0, fp);
+    print_all_subtree_complete(root, path, 0, fp, str);
     return 1;
 }
 
