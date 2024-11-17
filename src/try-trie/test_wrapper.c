@@ -236,13 +236,27 @@ void my_fix()
     assert(x == -1);
 }
 
+void Is_file(){
+    assert(create(2, "home/abc/") != -1);
+    assert(create(4, "home/abc/def/ghi/") != -1);
+    assert(create(4, "home/abc/def/a.txt") != -1);
+    assert(create(6, "home/abc/def/ghi/jkl/mno/") != -1);
+    assert(create(3, "home/abc/def/") != -1);
+    assert(create(3, "home/abc/def/abs.txt") != -1);
+    assert(create(5, "home/abc/def/ghi/jkl/") != -1);
+    assert(IS_FILE("asb")==-1);
+    assert(IS_FILE("home/abc/def/ghi/jkl/")==0);
+    assert(IS_FILE("home/abc/def/abs.txt")==1);
+}
+
 int main()
 {
+    Is_file();
     // my_fix();
     // test_search_new();
     // test_search();
     // my_doubt();
-    test_ls_v2();
+    // test_ls_v2();
     // test_create();
     // test_delete_file_folder();
     // test_what_the_lock();

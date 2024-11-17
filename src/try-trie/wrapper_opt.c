@@ -6,6 +6,7 @@ LRU_Cache *__global_lru = NULL;
 int IS_FILE(char *str)
 {
     char *newstr = handle_slash(str);
+    printf("newstr %s %s\n", newstr,str);
     int x = is_file(__global_trie, newstr);
     free(newstr);
     return x;

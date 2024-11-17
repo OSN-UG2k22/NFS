@@ -224,14 +224,13 @@ void *handle_client(void *client_socket)
             msg_addr.op = OP_NS_REPLY_SS;
             char *tmp = strchr(msg->file, ':');
             char *tmp2 = strdup(msg->file);
-            for (int i = 0; i < strlen(tmp2); i++)
-            {
-                if (tmp2[i] == ':')
-                {
-                    tmp2[i] = '\0';
-                    break;
-                }
-            }
+            int src_exists;
+            int dest_exists;
+            src_exists = IS_FILE(tmp + 1);
+            *tmp = '\0';
+            dest_exists = IS_FILE(msg->file);
+            *tmp = ':';
+
             if (!tmp)
             {
                 ecode = ERR_REQ;
@@ -250,56 +249,9 @@ void *handle_client(void *client_socket)
             {
                 // for foldder use ls_v2 and list all the files and folder in folder
 
-                // printf("ISFILE %d : %s\n", IS_FILE(tmp2), tmp2);
-                // printf("ISFILE %d : %s\n", IS_FILE(tmp + 1), tmp + 1);
-
-                // isse phle destination h hi nhi
                 // IS_FILE(tmp2) == 0 means it is a folder
-                // destination:source
-                if ((IS_FILE(tmp2) == -1 || IS_FILE(tmp2) == 0) && IS_FILE(tmp + 1) == 0)
-                {
-                    FILE *temp = tmpfile();
-                    ls_v2(tmp + 1, temp);
-                    fseek(temp, 0, SEEK_SET);
-                    // get line by line from temp and send to sserver_fd
-                    // after concatenating with destination path i.e msg->file
-                    // so create a new message
-                    char *line = NULL;
-                    size_t len = 0;
-                    ssize_t read;
-                    int len_src = strlen(tmp + 1);
-                    *tmp = '\0';
-
-                    while ((read = getline(&line, &len, temp)) != -1)
-                    {
-                        MessageFile *msg_file = malloc(sizeof(MessageFile));
-                        msg_file->op = OP_NS_COPY;
-                        strcpy(msg_file->file, path_concat(msg->file, line + len_src));
-                        msg_file->file[strlen(msg_file->file) - 1] = '\0';
-                        // create(msg, msg_file->file);
-                        ErrCode blew_code = sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
-                        strcat(msg_file->file, ":");
-                        strcat(msg_file->file, line);
-                        // printf("Sending %s\n", msg_file->file);
-                        msg_file->file[strlen(msg_file->file) - 1] = '\0';
-                        if (sock_send(sserver_fd, (Message *)msg_file))
-                        {
-                            if (sock_send(sserver_fd, (Message *)&msg_addr))
-                            {
-                                ecode = sock_get_ack(sserver_fd);
-                            }
-                            else
-                            {
-                                ecode = ERR_CONN;
-                            }
-                        }
-                        else
-                        {
-                            ecode = ERR_CONN;
-                        }
-                    }
-                }
-                else
+                printf("dest_exists %d src_exists %d\n", dest_exists, src_exists);
+                if ((src_exists == 1 || src_exists == -1))
                 {
                     if (sock_send(sserver_fd, (Message *)msg))
                     {
@@ -315,6 +267,64 @@ void *handle_client(void *client_socket)
                     else
                     {
                         ecode = ERR_CONN;
+                    }
+                }
+                else
+                {
+                    if (dest_exists == 0 || dest_exists == -1)
+                    {
+                        if (tmp[strlen(tmp) - 1] != '/')
+                        {
+                            strcat(tmp, "/");
+                        }
+                        FILE *temp = tmpfile();
+                        ls_v2(tmp + 1, temp);
+                        fseek(temp, 0, SEEK_SET);
+                        // get line by line from temp and send to sserver_fd
+                        // after concatenating with destination path i.e msg->file
+                        // so create a new message
+                        char *line = NULL;
+                        size_t len = 0;
+                        ssize_t read;
+                        int len_src = strlen(tmp + 1);
+                        *tmp = '\0';
+                        if (msg->file[strlen(msg->file) - 1] != '/')
+                        {
+                            strcat(msg->file, "/");
+                        }
+
+                        while ((read = getline(&line, &len, temp)) != -1)
+                        {
+                            MessageFile *msg_file = malloc(sizeof(MessageFile));
+                            msg_file->op = OP_NS_COPY;
+                            strcpy(msg_file->file, path_concat(msg->file, line + len_src));
+                            msg_file->file[strlen(msg_file->file) - 1] = '\0';
+                            // create(msg, msg_file->file);
+                            ErrCode blew_code = sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
+                            strcat(msg_file->file, ":");
+                            strcat(msg_file->file, line);
+                            // printf("Sending %s\n", msg_file->file);
+                            msg_file->file[strlen(msg_file->file) - 1] = '\0';
+                            if (sock_send(sserver_fd, (Message *)msg_file))
+                            {
+                                if (sock_send(sserver_fd, (Message *)&msg_addr))
+                                {
+                                    ecode = sock_get_ack(sserver_fd);
+                                }
+                                else
+                                {
+                                    ecode = ERR_CONN;
+                                }
+                            }
+                            else
+                            {
+                                ecode = ERR_CONN;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        ecode = ERR_REQ;
                     }
                 }
             }

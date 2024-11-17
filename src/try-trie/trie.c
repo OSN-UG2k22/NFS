@@ -5,6 +5,7 @@ int is_file(trienode *root, char *str)
 {
     for (int i = 0; i < (int)strlen(str); i++)
     {
+        printf("abi %c\n", str[i]);
         if (root->child[(unsigned char)str[i]] == NULL)
         {
             return -1; // invalid path
@@ -13,9 +14,12 @@ int is_file(trienode *root, char *str)
     }
     if (root->child[(int)'/'] == NULL)
     {
-        return 1; // is dir
+        if (root->hashind != -1){//there is a server for this file so it is a file
+            return 1; // is file
+        }
+        return -1; // is not a file
     }
-    return 0; // is file
+    return 0; // is directory
 }
 
 void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp, char* str)
