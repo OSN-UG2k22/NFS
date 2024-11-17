@@ -32,7 +32,7 @@
 #define SS_METADATA ".ss_metadata_hidden"
 #define NS_METADATA ".ns_metadata_hidden"
 
-#define FILE_THRESHOLD 2
+#define FILE_THRESHOLD 1000
 /* Any message sent over the network must have one of these values in the
  * header */
 typedef enum _Operation
