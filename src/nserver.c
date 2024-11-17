@@ -246,9 +246,7 @@ void *handle_client(void *client_socket)
             }
             if (ecode == ERR_NONE)
             {
-                // for foldder use ls_v2 and list all the files and folder in folder
-
-                printf("dest_exists %d src_exists %d\n", dest_exists, src_exists);
+                // for folder use ls_v2 and list all the files and folder in folder
                 if ((src_exists == 1 || src_exists == -1))
                 {
                     if (sock_send(sserver_fd, (Message *)msg))
@@ -297,7 +295,7 @@ void *handle_client(void *client_socket)
                             msg_file->op = OP_NS_COPY;
                             strcpy(msg_file->file, path_concat(msg->file, line + len_src));
                             msg_file->file[strlen(msg_file->file) - 1] = '\0';
-                            ErrCode blew_code = sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
+                            sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
                             strcat(msg_file->file, ":");
                             strcat(msg_file->file, line);
                             msg_file->file[strlen(msg_file->file) - 1] = '\0';
