@@ -40,7 +40,15 @@ int search_v2(char *str, int *is_partial)
     }
 
     char *newstr = handle_slash(str);
-    int x = find_new(__global_trie, newstr, is_partial);
+
+    int x = find_and_update(__global_lru, newstr);
+    if (x != -1)
+    {
+        is_partial = 0;
+        return x;
+    }
+
+    x = find_new(__global_trie, newstr, is_partial);
     // if (x != -1)
     // {
     //     *is_partial = 0;
