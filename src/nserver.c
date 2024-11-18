@@ -7,35 +7,23 @@ int16_t sservers_count = 0;
 
 char *nserver_meta_path = NULL;
 
-char* give_backup1_path(char* path)
+void sservers_debug()
 {
-    char* b = "backup1/";
-    char* ret = (char*)malloc(strlen(path)+strlen(b)+1);
-    memmove(ret+strlen(b),path,strlen(path)+1);
-    memcpy(ret,b,strlen(b));
-    return ret;
-}
-
-char* give_backup2_path(char* path)
-{
-    char* b = "backup2/";
-    char* ret = (char*)malloc(strlen(path)+strlen(b)+1);
-    memmove(ret+strlen(b),path,strlen(path)+1);
-    memcpy(ret,b,strlen(b));
-    return ret;
-}
-
-void sserverfd_to_id(int sserver_fd, int* id)
-{
-    for(int i=0;i<NS_MAX_CONN;i++)
+    printf("===\n");
+    printf("count %d\n", sservers_count);
+    for (int i = 0; i < sservers_count; i++)
     {
-        if(sservers[i].sock_fd == sserver_fd)
+        if (sservers[i].is_used)
         {
-            *id = i;
-            return;
+            printf("%d (%d): fd=%d, ", i, sservers[i].id, sservers[i].sock_fd);
+            ipv4_print_addr(&sservers[i].addr, NULL);
+        }
+        else
+        {
+            printf("%d: UNUSED\n", i);
         }
     }
-    *id = -1;
+    printf("===\n");
 }
 
 SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_fd)
@@ -70,18 +58,39 @@ SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_
             ret->_port = pd->port;
             if (ret->id == 0)
             {
-                ret->backup1 = 1;
-                ret->backup2 = 2;
+                ret->backup[0] = 1;
+                ret->backup[1] = 2;
+                ret->backup_by[0][0] = 1;
+                ret->backup_by[0][1] = -1;
+                ret->backup_by[1][0] = 2;
+                ret->backup_by[1][1] = -1;
             }
             else if (ret->id == 1)
             {
-                ret->backup1 = 0;
-                ret->backup2 = 2;
+                ret->backup[0] = 0;
+                ret->backup[1] = 2;
+                ret->backup_by[0][0] = 0;
+                ret->backup_by[0][1] = 2;
+                ret->backup_by[1][0] = 3;
+                ret->backup_by[1][1] = -1;
+            }
+            else if (ret->id == 2)
+            {
+                ret->backup[0] = 1;
+                ret->backup[1] = 0;
+                ret->backup_by[0][0] = 3;
+                ret->backup_by[0][1] = -1;
+                ret->backup_by[1][0] = 1;
+                ret->backup_by[1][1] = 0;
             }
             else
             {
-                ret->backup1 = ret->id - 1;
-                ret->backup2 = ret->id - 2;
+                ret->backup[0] = ret->id - 1;
+                ret->backup[1] = ret->id - 2;
+                ret->backup_by[0][0] = ret->id + 1;
+                ret->backup_by[0][1] = -1;
+                ret->backup_by[1][0] = ret->id + 2;
+                ret->backup_by[1][1] = -1;
             }
         }
     }
@@ -171,6 +180,29 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int 
         }
     }
 
+    int is_write = force_create || with_delete;
+    if (ret == ERR_NONE)
+    {
+        if (!sservers[sserver_id].is_used)
+        {
+            if (is_write)
+            {
+                ret = ERR_SS;
+            }
+            else
+            {
+                sserver_id = sservers[sserver_id].backup[0];
+                if (!sservers[sserver_id].is_used)
+                {
+                    sserver_id = sservers[sserver_id].backup[1];
+                    if (!sservers[sserver_id].is_used)
+                    {
+                        ret == ERR_SS;
+                    }
+                }
+            }
+        }
+    }
     if (ret == ERR_NONE)
     {
         if (addr)
@@ -210,29 +242,6 @@ void *handle_client(void *client_socket)
                 if (sock_send(sserver_fd, (Message *)msg))
                 {
                     ecode = sock_get_ack(sserver_fd);
-                    if (ecode == ERR_NONE)
-                    {
-                        int sserver_id = -1;
-                        sserverfd_to_id(sserver_fd, &sserver_id);
-
-                        char* temp = strdup(msg->file);
-                        strcpy(msg->file,give_backup1_path(temp));
-                        if (sservers[sservers[sserver_id].backup1].is_used)
-                        {
-                            if (sock_send(sservers[sservers[sserver_id].backup1].sock_fd, (Message *)msg))
-                                ecode = sock_get_ack(sservers[sservers[sserver_id].backup1].sock_fd);
-                        }
-                        
-                        printf("backup1: %s\n",msg->file);
-                        strcpy(msg->file,give_backup2_path(temp));
-                        printf("Debug1\n");
-                        if (sservers[sservers[sserver_id].backup2].is_used)
-                        {
-                            if (sock_send(sservers[sservers[sserver_id].backup2].sock_fd, (Message *)msg))
-                                ecode = sock_get_ack(sservers[sservers[sserver_id].backup2].sock_fd);
-                            printf("Debug3\n");
-                        }
-                    }
                 }
                 else
                 {
@@ -253,29 +262,6 @@ void *handle_client(void *client_socket)
                 if (sock_send(sserver_fd, (Message *)msg))
                 {
                     ecode = sock_get_ack(sserver_fd);
-                    if (ecode == ERR_NONE)
-                    {
-                        int sserver_id = -1;
-                        sserverfd_to_id(sserver_fd, &sserver_id);
-
-                        char* temp = strdup(msg->file);
-                        strcpy(msg->file,give_backup1_path(temp));
-                        if (sservers[sservers[sserver_id].backup1].is_used)
-                        {
-                            if (sock_send(sservers[sservers[sserver_id].backup1].sock_fd, (Message *)msg))
-                                ecode = sock_get_ack(sservers[sservers[sserver_id].backup1].sock_fd);
-                        }
-                        
-                        printf("backup1: %s\n",msg->file);
-                        strcpy(msg->file,give_backup2_path(temp));
-                        printf("Debug1\n");
-                        if (sservers[sservers[sserver_id].backup2].is_used)
-                        {
-                            if (sock_send(sservers[sservers[sserver_id].backup2].sock_fd, (Message *)msg))
-                                ecode = sock_get_ack(sservers[sservers[sserver_id].backup2].sock_fd);
-                            printf("Debug3\n");
-                        }
-                    }
                 }
                 else
                 {
@@ -433,10 +419,6 @@ void *handle_client(void *client_socket)
                 }
                 fclose(temp);
             }
-            char** file_array = (char**) malloc(MAX_FILES*sizeof(char*));
-            for (int i = 0; i < MAX_FILES; i++) {
-                file_array[i] = (char*) malloc(FILENAME_MAX_LEN*sizeof(char));
-            }
             break;
         default:
             /* Invalid OP at this case */
@@ -498,6 +480,36 @@ void *handle_ss(void *sserver_void)
         free(msg);
     }
     printf("[STORAGE SERVER %d] Finished exposing all files, now ready to process requests\n", sserver->id);
+
+    pthread_mutex_lock(&sservers_lock);
+    // inform sserver of its backups
+    for (int i = 0; i < NUM_BACKUPS; i++)
+    {
+        if (sservers[sserver->backup[i]].is_used)
+        {
+            MessageAddr backupinfo;
+            backupinfo.op = i ? OP_BACKUP_INFO2 : OP_BACKUP_INFO1;
+            backupinfo.addr = sservers[sserver->backup[i]].addr;
+            sock_send(sserver->sock_fd, (Message *)&backupinfo);
+        }
+    }
+
+    for (int i = 0; i < NUM_BACKUPS; i++)
+    {
+        for (int j = 0; j < NUM_BACKUPS; j++)
+        {
+            int16_t back = sserver->backup_by[i][j];
+            MessageAddr backupinfo;
+            if (back >= 0 && sservers[back].is_used)
+            {
+                backupinfo.op = i ? OP_BACKUP_INFO2 : OP_BACKUP_INFO1;
+                backupinfo.addr = sserver->addr;
+                sock_send(sservers[back].sock_fd, (Message *)&backupinfo);
+            }
+        }
+    }
+    pthread_mutex_unlock(&sservers_lock);
+
     while (1)
     {
         char buffer;

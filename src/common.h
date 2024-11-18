@@ -33,6 +33,9 @@
 #define NS_METADATA ".ns_metadata_hidden"
 
 #define FILE_THRESHOLD 1000
+
+#define NUM_BACKUPS 2
+
 /* Any message sent over the network must have one of these values in the
  * header */
 typedef enum _Operation
@@ -53,8 +56,11 @@ typedef enum _Operation
     OP_NS_LR,           /* MessageFile */
     OP_SS_READ,         /* MessageFile */
     OP_SS_WRITE,        /* MessageFile */
+    OP_SS_WRITE_BACKUP, /* MessageFile */
     OP_SS_INFO,         /* MessageFile */
     OP_SS_STREAM,       /* MessageFile */
+    OP_BACKUP_INFO1,    /* MessageAddr */
+    OP_BACKUP_INFO2,    /* MessageAddr */
 } Operation;
 
 typedef enum _ErrCode
@@ -144,17 +150,26 @@ typedef struct _SServerInfo
     int is_used;
     int16_t id;
     uint16_t _port;
-    int16_t backup1;
-    int16_t backup2;
+    int16_t backup[NUM_BACKUPS];
+    int16_t backup_by[NUM_BACKUPS][NUM_BACKUPS];
 } SServerInfo;
 
 typedef struct _AsyncWriteInfo
 {
     FILE *outfile;
     char *buffer;
+    char *write_path;
     int size;
     int sock_fd;
 } AsyncWriteInfo;
+
+typedef enum _SSPath
+{
+    SS_PATH_BASE,
+    SS_PATH_ACTUAL,
+    SS_PATH_BACKUP,
+    SS_PATH_MAX,
+} SSPath;
 
 void ipv4_print_addr(struct sockaddr_in *addr, const char *interface);
 
@@ -168,7 +183,7 @@ void sock_send_ack(int sock, ErrCode *ecode);
 ErrCode sock_get_ack(int sock);
 
 void stream_music(char *ip, uint16_t port);
-ErrCode stream_file(int client_socket, const char *filename);
+ErrCode stream_file(int client_socket, FILE *file);
 /* Path utils */
 
 char *path_remove_prefix(char *self, char *op);

@@ -20,6 +20,7 @@ int sock_send(int sock, Message *message)
     case OP_NS_LR:
     case OP_SS_READ:
     case OP_SS_WRITE:
+    case OP_SS_WRITE_BACKUP:
     case OP_SS_INFO:
     case OP_SS_STREAM:
     case OP_NS_GET_SS:
@@ -32,6 +33,8 @@ int sock_send(int sock, Message *message)
         message->size = sizeof(int);
         break;
     case OP_NS_REPLY_SS:
+    case OP_BACKUP_INFO1:
+    case OP_BACKUP_INFO2:
         message->size = sizeof(struct sockaddr);
         break;
     case OP_RAW:
@@ -91,6 +94,7 @@ Message *sock_get(int sock)
     case OP_NS_LR:
     case OP_SS_READ:
     case OP_SS_WRITE:
+    case OP_SS_WRITE_BACKUP:
     case OP_SS_INFO:
     case OP_SS_STREAM:
     case OP_NS_GET_SS:
