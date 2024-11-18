@@ -186,3 +186,12 @@ int ls(char *str, FILE *fp) // lists all files and subfiles
     return result;
 }
 // void ls(char* str); //
+
+int query_server(int server_id, char** file_array)
+{
+    int len_filearray = 0;
+    char path[FILENAME_MAX_LEN];
+    memset(path, 0, FILENAME_MAX_LEN);
+    get_all_subtree_nodes(__global_trie, path, 0, file_array, &len_filearray, server_id);
+    return len_filearray;
+}

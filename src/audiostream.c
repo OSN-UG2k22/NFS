@@ -2,14 +2,11 @@
 
 #define BUFFER_SIZE 1024
 
-ErrCode stream_file(int client_socket, const char *filename)
+ErrCode stream_file(int client_socket, FILE *file)
 {
     int fd = -1;
     ErrCode ret = ERR_NONE;
     char buffer[BUFFER_SIZE];
-    // int file_fd = open(filename, O_RDONLY);
-    // do it with fopen
-    FILE *file = fopen(filename, "r");
     if (!file)
     {
         perror("[SELF] Failed to open file");
@@ -67,7 +64,6 @@ end:
             ret = ERR_LOCK;
         }
     }
-    fclose(file);
     return ret;
 }
 
