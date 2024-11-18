@@ -263,6 +263,7 @@ void *handle_async_and_backup(void *arg)
                             : ERR_CONN;
                 if (ecode == ERR_NONE)
                 {
+                    fseek(read_file, 0, SEEK_SET);
                     ecode = path_sock_sendfile(dst_sock, read_file, 1);
                 }
                 close(dst_sock);

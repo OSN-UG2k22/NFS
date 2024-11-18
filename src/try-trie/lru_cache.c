@@ -25,43 +25,43 @@ void insert(LRU_Cache *cache, int ind, char *str)
 void delete_from_cache(LRU_Cache *cache, char *str)
 {
     struct node *temp = cache->head;
-    while (temp != NULL)
-    {
-        node *copy = temp;
-        temp = temp->next;
-        free(copy);
-    }
-
-    // int ind = 0;
-    // while (temp != NULL && ind < MAX_CACHE_SIZE + 1)
+    // while (temp != NULL)
     // {
-    //     // if (strcmp(str, temp->name) == 0)
-    //     if (strstr(temp->name, str) != NULL)
-    //     {
-    //         if (temp->prev == NULL && temp->next == NULL)
-    //         {
-    //             cache->head = NULL;
-    //         }
-    //         else if (temp->prev == NULL)
-    //         {
-    //             cache->head = temp->next;
-    //             temp->next->prev = NULL;
-    //         }
-    //         else if (temp->next == NULL)
-    //         {
-    //             temp->prev->next = NULL;
-    //         }
-    //         else
-    //         {
-    //             temp->prev->next = temp->next;
-    //             temp->next->prev = temp->prev;
-    //         }
-    //         free(temp);
-    //         // return;
-    //     }
+    //     node *copy = temp;
     //     temp = temp->next;
-    //     ind++;
+    //     free(copy);
     // }
+
+    int ind = 0;
+    while (temp != NULL && ind < MAX_CACHE_SIZE + 1)
+    {
+        // if (strcmp(str, temp->name) == 0)
+        if (strstr(temp->name, str) != NULL)
+        {
+            if (temp->prev == NULL && temp->next == NULL)
+            {
+                cache->head = NULL;
+            }
+            else if (temp->prev == NULL)
+            {
+                cache->head = temp->next;
+                temp->next->prev = NULL;
+            }
+            else if (temp->next == NULL)
+            {
+                temp->prev->next = NULL;
+            }
+            else
+            {
+                temp->prev->next = temp->next;
+                temp->next->prev = temp->prev;
+            }
+            free(temp);
+            // return;
+        }
+        temp = temp->next;
+        ind++;
+    }
 }
 
 int find_in_cache(LRU_Cache *lru, char *temp)
