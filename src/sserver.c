@@ -708,6 +708,8 @@ int main(int argc, char *argv[])
     }
 
 end:
+    free(storage_path[SS_PATH_ACTUAL]);
+    free(storage_path[SS_PATH_BACKUP]);
     close(sserver_fd);
     close(nserver_fd);
     return 0;

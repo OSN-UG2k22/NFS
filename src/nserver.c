@@ -324,15 +324,17 @@ void *handle_client(void *client_socket)
 
                         while ((read = getline(&line, &len, temp)) != -1)
                         {
-                            MessageFile *msg_file = malloc(sizeof(MessageFile));
-                            msg_file->op = OP_NS_COPY;
-                            strcpy(msg_file->file, path_concat(msg->file, line + len_src));
-                            msg_file->file[strlen(msg_file->file) - 1] = '\0';
-                            sserver_by_path(msg_file->file, NULL, NULL, 1, 0);
-                            strcat(msg_file->file, ":");
-                            strcat(msg_file->file, line);
-                            msg_file->file[strlen(msg_file->file) - 1] = '\0';
-                            if (sock_send(sserver_fd, (Message *)msg_file))
+                            MessageFile msg_file;
+                            msg_file.op = OP_NS_COPY;
+                            char *tmp_path = path_concat(msg->file, line + len_src);
+                            strcpy(msg_file.file, tmp_path);
+                            free(tmp_path);
+                            msg_file.file[strlen(msg_file.file) - 1] = '\0';
+                            sserver_by_path(msg_file.file, NULL, NULL, 1, 0);
+                            strcat(msg_file.file, ":");
+                            strcat(msg_file.file, line);
+                            msg_file.file[strlen(msg_file.file) - 1] = '\0';
+                            if (sock_send(sserver_fd, (Message *)&msg_file))
                             {
                                 if (sock_send(sserver_fd, (Message *)&msg_addr))
                                 {
