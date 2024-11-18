@@ -371,7 +371,6 @@ void *handle_client(void *fd_ptr)
             break;
         case OP_SS_STREAM:
             operation = "stream path";
-            // sendfile(sock_fd, msg->file);
             uint16_t port = 0;
             file = sserver_fopen(msg->file, 0);
             if (!file)
@@ -393,7 +392,6 @@ void *handle_client(void *fd_ptr)
                 break;
             }
 
-            // while (1) {
             struct sockaddr_in client_addr;
             socklen_t client_len = sizeof(client_addr);
             int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
@@ -412,16 +410,6 @@ void *handle_client(void *fd_ptr)
             break;
         case OP_SS_INFO:
             operation = "info of path";
-            // use ls -l program to get file(actual_path) info
-            // scrape size last modified date and name and permissions from it and send it to client
-            // char command[256];
-            // snprintf(command, sizeof(command), "ls -l \"%s\" | awk '{print $1, $5, $6, $7, $8}'", actual_path);
-            // file = popen(command, "r");
-            // if (!file)
-            // {
-            //     perror("[SELF] Could not open file");
-            //     ecode = ERR_SYS;
-            // }
             FILE *temp = tmpfile();
             if (!temp)
             {
@@ -662,7 +650,10 @@ int main(int argc, char *argv[])
             goto end;
         }
         fseek(f, 0, SEEK_SET);
-        fscanf(f, "%hd", &pd.id);
+        if (fscanf(f, "%hd", &pd.id) == 1)
+        {
+            printf("[SELF] Metadata file successfully read\n");
+        }
         fclose(f);
     }
 

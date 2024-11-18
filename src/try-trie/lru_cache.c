@@ -1,31 +1,4 @@
 #include "lru_cache.h"
-
-// typedef struct node
-// {
-//     int hashind;
-//     char name[100];
-//     struct node *next;
-//     struct node *prev;
-// } node;
-
-// typedef struct LRU_Cache
-// {
-//     node *head;
-//     int size;
-// } LRU_Cache;
-
-// void initialize_cache(LRU_Cache *cache)
-// {
-//     __global_lru = (LRU_Cache *)malloc(sizeof(LRU_Cache));
-//         __global_lru->head = NULL;
-//         __global_lru->head->hashind = main_server;
-//         strcpy(__global_lru->head->name, str);
-//         __global_lru->head->next = NULL;
-//         __global_lru->size = 1;
-//     cache->head = NULL;
-//     cache->size = 0;
-// }
-
 #define MAX_CACHE_SIZE 10
 
 void insert(LRU_Cache *cache, int ind, char *str)
@@ -47,17 +20,6 @@ void insert(LRU_Cache *cache, int ind, char *str)
         cache->head->prev = temp;
         cache->head = temp;
     }
-}
-
-void debug_print_cache(LRU_Cache *cache)
-{
-    struct node *temp = cache->head;
-    while (temp != NULL)
-    {
-        printf("%s : %d\n", temp->name, temp->hashind);
-        temp = temp->next;
-    }
-    // printf("\n");
 }
 
 void delete_from_cache(LRU_Cache *cache, char *str)

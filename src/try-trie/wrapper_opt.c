@@ -5,6 +5,11 @@ LRU_Cache *__global_lru = NULL;
 
 int IS_FILE(char *str)
 {
+    if (__global_trie == NULL)
+    {
+        return -1; // path is invalid
+    }
+    
     char *newstr = handle_slash(str);
     int x = is_file(__global_trie, newstr);
     free(newstr);
@@ -31,7 +36,8 @@ int ls_v2(char *str, FILE *fp) // lists all files and subfiles
 {
     if (!__global_trie)
     {
-        return 0;
+        // fprintf(fp, "", str); // to create file if it doesnt exist or make it empty
+        return 1;
     }
     char *newstr = handle_slash_v2(str);
     int result = print_all_childs_v2(__global_trie, newstr, fp);
@@ -43,7 +49,7 @@ int search_v2(char *str, int *is_partial)
 
     if (!__global_trie)
     {
-        return -1;
+        return -1; // is partial doesnt matter invalid str path
     }
 
     char *newstr = handle_slash(str);
@@ -56,12 +62,6 @@ int search_v2(char *str, int *is_partial)
     }
 
     x = find_new(__global_trie, newstr, is_partial);
-    // if (x != -1)
-    // {
-    //     *is_partial = 0;
-    //     return x;
-    // }
-    // *is_partial = 1;
     return x;
 }
 
@@ -120,29 +120,6 @@ int create(int main_server, char *str) // takes main server and string path inse
     return x;
 }
 
-int search(char *str) // searches in lru first, if not found then in trie returns -1 if not found in both
-{
-    if (!__global_trie)
-    {
-        return -1;
-    }
-
-    // int x = find_in_cache(__global_lru, str);
-    char *newstr = handle_slash(str);
-    int x = find_and_update(__global_lru, newstr);
-    if (x != -1)
-    {
-        return x;
-    }
-    x = find_in_trie(__global_trie, newstr);
-    if (x != -1)
-    {
-        return x;
-    }
-    return -1;
-}
-// int find_all(int *arr, int max_conn, char *str); // to remove warning
-
 int delete_file_folder(char *str) // first deletes from LRU, then deletes from trie
 {
     if (!__global_trie)
@@ -163,35 +140,14 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     return x;
 }
 
-pthread_mutex_t *what_the_lock(char *str) // returns a pointer to lock for that file
-{
-    if (!__global_trie)
-    {
-        return NULL;
-    }
-
-    char *newstr = handle_slash(str);
-    return lock_in_trie(__global_trie, newstr);
-}
-
 int ls(char *str, FILE *fp) // lists all files and subfiles
 {
     if (!__global_trie)
     {
-        return 0;
+        return 1;
     }
 
     char *newstr = handle_slash(str);
     int result = print_all_childs(__global_trie, newstr, fp);
     return result;
-}
-// void ls(char* str); //
-
-int query_server(int server_id, char** file_array)
-{
-    int len_filearray = 0;
-    char path[FILENAME_MAX_LEN];
-    memset(path, 0, FILENAME_MAX_LEN);
-    get_all_subtree_nodes(__global_trie, path, 0, file_array, &len_filearray, server_id);
-    return len_filearray;
 }

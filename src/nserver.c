@@ -7,25 +7,6 @@ int16_t sservers_count = 0;
 
 char *nserver_meta_path = NULL;
 
-void sservers_debug()
-{
-    printf("===\n");
-    printf("count %d\n", sservers_count);
-    for (int i = 0; i < sservers_count; i++)
-    {
-        if (sservers[i].is_used)
-        {
-            printf("%d (%d): fd=%d, ", i, sservers[i].id, sservers[i].sock_fd);
-            ipv4_print_addr(&sservers[i].addr, NULL);
-        }
-        else
-        {
-            printf("%d: UNUSED\n", i);
-        }
-    }
-    printf("===\n");
-}
-
 SServerInfo *sserver_register(PortAndID *pd, struct sockaddr_in *addr, int sock_fd)
 {
     SServerInfo *ret = NULL;
@@ -197,7 +178,7 @@ ErrCode sserver_by_path(char *path, int *sock_fd, struct sockaddr_in *addr, int 
                     sserver_id = sservers[sserver_id].backup[1];
                     if (!sservers[sserver_id].is_used)
                     {
-                        ret == ERR_SS;
+                        ret = ERR_SS;
                     }
                 }
             }
@@ -544,7 +525,10 @@ int main(int argc, char *argv[])
     FILE *meta = fopen(NS_METADATA, "r");
     if (meta)
     {
-        fscanf(meta, "%hd", &sservers_count);
+        if (fscanf(meta, "%hd", &sservers_count) == 1)
+        {
+            printf("[SELF] Metadata file successfully read\n");
+        }
         fclose(meta);
     }
 
