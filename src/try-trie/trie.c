@@ -1,6 +1,5 @@
 #include "trie.h"
 
-
 int is_file(trienode *root, char *str)
 {
     for (int i = 0; i < (int)strlen(str); i++)
@@ -13,7 +12,8 @@ int is_file(trienode *root, char *str)
     }
     if (root->child[(int)'/'] == NULL)
     {
-        if (root->hashind != -1){//there is a server for this file so it is a file
+        if (root->hashind != -1)
+        {             // there is a server for this file so it is a file
             return 1; // is file
         }
         return -1; // is not a file
@@ -21,7 +21,7 @@ int is_file(trienode *root, char *str)
     return 0; // is directory
 }
 
-void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp, char* str)
+void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp, char *str)
 {
     if (node == NULL)
     {
@@ -176,28 +176,52 @@ void initialize_trie(trienode **root)
 
 int delete_from_trie(trienode *root, char *str)
 {
+    if (root == NULL)
+    {
+        return -1;
+    }
+    trienode *lastslash = root;
+    int slahind = 0;
+    char todel = '/';
     for (int i = 0; i < (int)strlen(str); i++)
     {
-        if (root->child[(unsigned char)str[i]] == NULL)
+        if (root == NULL)
         {
             return -1;
         }
-        root = root->child[(unsigned char)str[i]];
-    }
-    if (root->hashind != -1)
-    {
-        root->hashind = -1;
-        // found
-        // also can free its children but who cares for storage
-        return 1;
-    }
-    else
-    {
-        // not found
-        return -1;
-    }
-}
+        if (str[i] == '/')
+        {
+            lastslash = root;
+            if (i + 1 < (int)strlen(str))
+            {
+                todel = str[i + 1];
+            }
 
+            slahind = i;
+        }
+        root = root->child[(unsigned int)str[i]];
+    }
+    trienode *traverse = lastslash;
+    for (int i = slahind; i < (int)strlen(str); i++)
+    {
+        int cnt = 0;
+        for (int i = 0; i < 256; i++)
+        {
+            if (traverse->child[i] != NULL)
+            {
+                cnt++;
+            }
+        }
+        if (cnt > 1)
+        {
+            lastslash = traverse;
+            todel = str[i];
+        }
+        traverse = traverse->child[(unsigned int)str[i]];
+    }
+    lastslash->child[(unsigned int)todel] = NULL;
+    return 1;
+}
 void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
 {
     if (node == NULL)

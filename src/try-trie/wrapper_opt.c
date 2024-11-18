@@ -138,6 +138,7 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     delete_from_cache(__global_lru, newstr);
     delete_from_trie(__global_trie, newstr);
     return x;
+    // return 1;
 }
 
 int ls(char *str, FILE *fp) // lists all files and subfiles
