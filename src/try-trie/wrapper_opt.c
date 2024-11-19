@@ -77,18 +77,22 @@ int search_v2(char *str, int *is_partial)
     {
         return -1; // is partial doesnt matter invalid str path
     }
+    if (str == NULL)
+    {
+        return -1;
+    }
+
+    int x = find_in_cache(__global_lru, str);
+    if (x != -1)
+    {
+        is_partial = 0;
+        return x;
+    }
 
     char *newstr = handle_slash(str);
     if (newstr == NULL)
     {
         return -1;
-    }
-
-    int x = find_in_cache(__global_lru, newstr);
-    if (x != -1)
-    {
-        is_partial = 0;
-        return x;
     }
 
     x = find_new(__global_trie, newstr, is_partial);
