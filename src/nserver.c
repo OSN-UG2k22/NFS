@@ -339,9 +339,14 @@ void *handle_client(void *client_socket)
                                 src_path++;
                                 read--;
                             }
-                            while (src_path[read - 1] == '\n')
+                            while (read && src_path[read - 1] == '\n')
                             {
                                 src_path[--read] = '\0';
+                            }
+
+                            if (!read || src_path[read - 1] == '/')
+                            {
+                                continue;
                             }
 
                             char *dst_path = path_remove_prefix(src_path, tmp + 1);
