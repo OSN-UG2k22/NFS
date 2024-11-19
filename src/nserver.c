@@ -123,9 +123,23 @@ ErrCode _sserver_random(char *path, int *sserver_id)
 ErrCode sserver_random(char *path, int *sock_fd)
 {
     int sserver_id = -1;
-    int ret = ERR_SS;
+    ErrCode ret;
     pthread_mutex_lock(&sservers_lock);
-    ret = _sserver_random(path, &sserver_id);
+    int is_partial = 0;
+    sserver_id = search_v2(path, &is_partial);
+    if (sserver_id < 0)
+    {
+        ret = _sserver_random(path, &sserver_id);
+    }
+    else if (is_partial)
+    {
+        create(sserver_id, path);
+        ret = ERR_NONE;
+    }
+    else
+    {
+        ret = ERR_EXISTS;
+    }
     if (ret == ERR_NONE && sserver_id >= 0)
     {
         *sock_fd = sservers[sserver_id].sock_fd;

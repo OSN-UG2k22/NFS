@@ -207,7 +207,7 @@ int delrec2(trienode *parent, trienode *child, int i, char *str,int assn) {
         if (hasChildren) {
             return 0;
         }
-        free(child); 
+        // free(child); 
         if (parent) {
             parent->child[(unsigned int)str[i - 1]] = NULL;
             parent->hashind = assn;
@@ -232,7 +232,7 @@ int delrec2(trienode *parent, trienode *child, int i, char *str,int assn) {
             }
         }
         if (!hasChildren) {
-            free(child);
+            // free(child);
             if (parent) {
                 parent->child[nextIndex] = NULL;
                 parent->hashind = assn;

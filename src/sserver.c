@@ -37,7 +37,11 @@ int _sserver_send_files(int sock, char *parent, MessageFile *cur)
     }
     free(actual_path);
 
+    /* Make folder */
+    strcat(cur->file, "/");
+
     int ret = 1;
+    int is_empty = 1;
     while ((entry = readdir(dir)) != NULL)
     {
         MessageFile new;
@@ -46,7 +50,8 @@ int _sserver_send_files(int sock, char *parent, MessageFile *cur)
             continue;
         }
 
-        int len = snprintf(new.file, sizeof(new.file), "%s/%s", cur->file, entry->d_name);
+        is_empty = 0;
+        int len = snprintf(new.file, sizeof(new.file), "%s%s", cur->file, entry->d_name);
         if (len <= 0 || len >= (int)sizeof(new.file))
         {
             continue;
@@ -57,6 +62,12 @@ int _sserver_send_files(int sock, char *parent, MessageFile *cur)
             ret = 0;
             break;
         }
+    }
+    if (is_empty && strcmp(cur->file, "/") != 0)
+    {
+        cur->op = OP_NS_INIT_FILE;
+        printf("[SELF] Exposing folder '%s'\n", cur->file);
+        ret &= sock_send(sock, (Message *)cur);
     }
     closedir(dir);
     return ret;
