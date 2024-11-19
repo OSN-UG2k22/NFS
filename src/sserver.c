@@ -550,27 +550,24 @@ void *handle_ns(void *ns_fd_ptr)
                     }
                 }
             }
-            if (ecode == ERR_NONE)
+            MessageAddr *reply_addr = (MessageAddr *)sock_get(ns_fd);
+            if (!reply_addr)
             {
-                MessageAddr *reply_addr = (MessageAddr *)sock_get(ns_fd);
-                if (!reply_addr)
+                ecode = ERR_CONN;
+            }
+            else if (reply_addr->op != OP_NS_REPLY_SS)
+            {
+                ecode = ERR_SYNC;
+            }
+            else
+            {
+                dst_sock = sock_connect_addr(&reply_addr->addr);
+                if (dst_sock < 0)
                 {
                     ecode = ERR_CONN;
                 }
-                else if (reply_addr->op != OP_NS_REPLY_SS)
-                {
-                    ecode = ERR_SYNC;
-                }
-                else
-                {
-                    dst_sock = sock_connect_addr(&reply_addr->addr);
-                    if (dst_sock < 0)
-                    {
-                        ecode = ERR_CONN;
-                    }
-                }
-                free(reply_addr);
             }
+            free(reply_addr);
             if (ecode == ERR_NONE)
             {
                 msg->op = OP_SS_WRITE;
@@ -583,7 +580,11 @@ void *handle_ns(void *ns_fd_ptr)
                 close(dst_sock);
             }
 
-            sock_send_ack(ns_fd, &ecode);
+            /* Ignore error while attempting to copy folder */
+            if (ecode == ERR_SYS && src_path[strlen(src_path) - 1] == '/')
+            {
+                ecode = ERR_NONE;
+            }
             break;
         default:
             /* Invalid OP at this case */

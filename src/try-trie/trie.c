@@ -180,55 +180,68 @@ void initialize_trie(trienode **root)
     return;
 }
 
-int delrec2(trienode *parent, trienode *child, int i, char *str,int assn) {
-    if (child == NULL) {
+int delrec2(trienode *parent, trienode *child, int i, char *str, int assn)
+{
+    if (child == NULL)
+    {
         return 0;
     }
 
-    if (str[i] == '\0') {
-        // printf("Reached end of path at %c and i:%d \n", str[i - 1],i);
-        int hasChildren = 0;
-        for (int k = 0; k < 256; k++) {
-            if (k==(int)'/')
-            {
-                continue;
-            }
-            if (child->child[k] != NULL) {
-                hasChildren = 1;
-                break;
-            }
-        }
-        if (hasChildren) {
-            return 0;
-        }
-        // free(child); 
-        if (parent) {
+    if (str[i] == '\0')
+    {
+        printf("Reached end of path at %c and i:%d \n", str[i - 1], i);
+        // int hasChildren = 0;
+        // for (int k = 0; k < 256; k++) {
+        //     if (k==(int)'/')
+        //     {
+        //         continue;
+        //     }
+        //     if (child->child[k] != NULL) {
+        //         hasChildren = 1;
+        //         break;
+        //     }
+        // }
+        // if (hasChildren) {
+        //     return 1;
+        // }
+        if (parent)
+        {
             parent->child[(unsigned int)str[i - 1]] = NULL;
             parent->hashind = assn;
         }
+        // free(child);
         return 1;
     }
 
     int nextIndex = (unsigned int)str[i];
-    int x = delrec2(child, child->child[nextIndex], i + 1, str,assn);
+    int x = delrec2(child, child->child[nextIndex], i + 1, str, assn);
 
-    if (x) {
+    if (x)
+    {
         int hasChildren = 0;
-        for (int k = 0; k < 256; k++) {
-            // if (k==(int)'/')
+        for (int k = 0; k < 256; k++)
+        {
+            // if (k==(int)str[i])
             // {
             //     continue;
             // }
-            
-            if (child->child[k] != NULL) {
-                hasChildren = 1;
-                break;
+
+            if (child->child[k] != NULL)
+            {
+                hasChildren++;
+                // break;
             }
         }
-        if (!hasChildren) {
+        if (hasChildren <= 0)
+        {
             // free(child);
-            if (parent) {
-                parent->child[nextIndex] = NULL;
+            // if (parent) {
+            //     parent->child[nextIndex] = NULL;
+            //     parent->hashind = assn;
+            // }
+            if (parent)
+            {
+                parent->child[(unsigned int)str[i - 1]] = NULL;
                 parent->hashind = assn;
             }
             return 1;
@@ -238,12 +251,14 @@ int delrec2(trienode *parent, trienode *child, int i, char *str,int assn) {
     return 0;
 }
 
-int delete_from_trie(trienode *root, char *str,int assn) {
-    if (root == NULL) {
+int delete_from_trie(trienode *root, char *str, int assn)
+{
+    if (root == NULL)
+    {
         return -1;
     }
 
-    return delrec2(NULL, root->child[(unsigned int)str[0]], 1, str,assn);
+    return delrec2(NULL, root->child[(unsigned int)str[0]], 1, str, assn);
 }
 void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
 {
