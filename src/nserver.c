@@ -403,6 +403,8 @@ void *handle_client(void *client_socket)
                 else
                 {
                     sock_send_ack(sock, &ecode);
+                    /* Read the ack of getfile */
+                    ecode = sock_get_ack(sock);
                 }
                 fclose(temp);
             }

@@ -94,7 +94,7 @@ ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite)
         if (fd == -1)
         {
             perror("[SELF] Error getting file descriptor");
-            ret = ERR_NONE;
+            ret = ERR_SYS;
         }
         else
         {
@@ -113,8 +113,8 @@ ErrCode path_sock_sendfile(int sock, FILE *infile, int pwrite)
     }
 
     MessageInt msg_size;
-    msg_size.info = sz;
-    msg_size.op = OP_SIZE;
+    msg_size.info = (ret == ERR_NONE) ? sz : (int)ret;
+    msg_size.op = (ret == ERR_NONE) ? OP_SIZE : OP_ACK;
     if (!sock_send(sock, (Message *)&msg_size))
     {
         ret = ERR_CONN;
@@ -161,7 +161,7 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
         if (fd == -1)
         {
             perror("[SELF] Error getting file descriptor");
-            ret = ERR_NONE;
+            ret = ERR_SYS;
         }
         else
         {
@@ -189,9 +189,15 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
         *buffer_size = -1;
     }
     MessageInt *msg_size = (MessageInt *)sock_get(sock);
-    if (!msg_size || msg_size->op != OP_SIZE)
+    if (!msg_size)
     {
         ret = ERR_CONN;
+    }
+    else if (msg_size->op != OP_SIZE)
+    {
+        ret = (msg_size->op == OP_ACK && msg_size->info != ERR_NONE)
+                  ? msg_size->info
+                  : ERR_SYNC;
     }
     else
     {
@@ -200,9 +206,10 @@ ErrCode path_sock_getfile(int sock, Message *msg_header, FILE *outfile, char **b
             *buffer_size = msg_size->info;
         }
     }
+    free(msg_size);
 
     char *cur_buffer = NULL;
-    if (buffer && buffer_size && *buffer_size > FILE_THRESHOLD)
+    if (ret == ERR_NONE && buffer && buffer_size && *buffer_size > FILE_THRESHOLD)
     {
         *buffer = malloc(*buffer_size);
         if (!*buffer)
