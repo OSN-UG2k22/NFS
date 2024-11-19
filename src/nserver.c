@@ -299,10 +299,6 @@ void *handle_client(void *client_socket)
                 {
                     if (dest_exists == 0 || dest_exists == -1)
                     {
-                        if (tmp[strlen(tmp) - 1] != '/')
-                        {
-                            strcat(tmp, "/");
-                        }
                         FILE *temp = tmpfile();
                         ls_v2(tmp + 1, temp);
                         fseek(temp, 0, SEEK_SET);
@@ -312,25 +308,35 @@ void *handle_client(void *client_socket)
                         char *line = NULL;
                         size_t len = 0;
                         ssize_t read;
-                        int len_src = strlen(tmp + 1);
                         *tmp = '\0';
-                        if (msg->file[strlen(msg->file) - 1] != '/')
-                        {
-                            strcat(msg->file, "/");
-                        }
 
                         while ((read = getline(&line, &len, temp)) != -1)
                         {
                             MessageFile msg_file;
                             msg_file.op = OP_NS_COPY;
-                            char *tmp_path = path_concat(msg->file, line + len_src);
+                            /* Remove leading slash and trailing newline */
+                            char *src_path = line;
+                            while (src_path[0] == '/')
+                            {
+                                src_path++;
+                                read--;
+                            }
+                            while (src_path[read - 1] == '\n')
+                            {
+                                src_path[--read] = '\0';
+                            }
+
+                            char *dst_path = path_remove_prefix(src_path, tmp + 1);
+                            if (!dst_path)
+                            {
+                                continue;
+                            }
+                            char *tmp_path = path_concat(msg->file, dst_path);
                             strcpy(msg_file.file, tmp_path);
                             free(tmp_path);
-                            msg_file.file[strlen(msg_file.file) - 1] = '\0';
                             sserver_by_path(msg_file.file, NULL, NULL, 1, 0);
                             strcat(msg_file.file, ":");
-                            strcat(msg_file.file, line);
-                            msg_file.file[strlen(msg_file.file) - 1] = '\0';
+                            strcat(msg_file.file, src_path);
                             if (sock_send(sserver_fd, (Message *)&msg_file))
                             {
                                 if (sock_send(sserver_fd, (Message *)&msg_addr))
@@ -347,10 +353,11 @@ void *handle_client(void *client_socket)
                                 ecode = ERR_CONN;
                             }
                         }
+                        free(line);
                     }
                     else
                     {
-                        ecode = ERR_REQ;
+                        ecode = ERR_EXISTS;
                     }
                 }
             }

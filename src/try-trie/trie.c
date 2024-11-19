@@ -31,8 +31,20 @@ void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp,
     if (node->hashind != -1)
     {
         path[level] = '\0';
-        fprintf(fp, "%s", str);
-        fprintf(fp, "%s\n", path);
+        int cnt = 0;
+        for (int i = 0; i < 256; i++)
+        {
+            if (node->child[i] != NULL)
+            {
+                cnt++;
+                break;
+            }
+        }
+        if (!cnt)
+        {
+            fprintf(fp, "%s", str);
+            fprintf(fp, "%s\n", path);
+        }
     }
 
     for (int i = 0; i < 256; i++)

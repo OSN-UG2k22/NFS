@@ -9,6 +9,16 @@ char *path_remove_prefix(char *self, char *op)
         return self;
     }
 
+    /* Ignore leading slash */
+    while (self[0] == '/')
+    {
+        self++;
+    }
+    while (op[0] == '/')
+    {
+        op++;
+    }
+
     ssize_t op_len = strlen(op);
     if (op[op_len - 1] == '/')
     {
