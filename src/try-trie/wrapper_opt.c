@@ -50,6 +50,12 @@ int ls_v2(char *str, FILE *fp) // lists all files and subfiles
         return 1;
     }
     char *newstr = handle_slash_v2(str);
+    int arr = 0;
+    int x = search_v2(newstr, &arr);
+    if (x == -1 || arr)
+    {
+        return -1;
+    }
     if (newstr == NULL)
     {
         return -1;
