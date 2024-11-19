@@ -183,9 +183,9 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     }
 
     char *newstr = handle_slash(str);
-    int arr;
+    int arr = 0;
     int x = search_v2(newstr, &arr);
-    if (x == -1)
+    if (x == -1 || arr)
     {
         return -1;
     }

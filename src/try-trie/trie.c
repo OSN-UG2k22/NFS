@@ -29,6 +29,7 @@ void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp,
     }
 
     // if (node->hashind != -1)
+    int printed = 0;
     {
         path[level] = '\0';
         int cnt = 0;
@@ -44,7 +45,14 @@ void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp,
         {
             fprintf(fp, "%s", str);
             fprintf(fp, "%s\n", path);
+            printed = 1;
         }
+    }
+
+    if (!printed && node->hashind != -1)
+    {
+        fprintf(fp, "%s", str);
+        fprintf(fp, "%s\n", path);
     }
 
     for (int i = 0; i < 256; i++)
@@ -127,15 +135,16 @@ int find_new(trienode *root, char *str, int *is_partial)
     {
         // is file, directory or incomplete match
         // *is_partial = 0;
-        if (root->hashind != -1||root->child[(int)'/']!=NULL)
+        if (root->hashind != -1 || root->child[(int)'/'] != NULL)
         {
             *is_partial = 0;
             // return root->hashind;
         }
-        else{
+        else
+        {
             *is_partial = 1;
         }
-        
+
         return find_subtree_new(root);
     }
     *is_partial = 1;

@@ -585,6 +585,7 @@ void *handle_ns(void *ns_fd_ptr)
             {
                 ecode = ERR_NONE;
             }
+            sock_send_ack(ns_fd, &ecode);
             break;
         default:
             /* Invalid OP at this case */
