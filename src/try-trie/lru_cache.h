@@ -25,6 +25,6 @@ typedef struct LRU_Cache
 void insert(LRU_Cache *cache, int ind, char *str);
 void delete_from_cache(LRU_Cache *cache, char *str);
 int find_in_cache(LRU_Cache *lru, char *temp);
-int find_and_update(LRU_Cache *cache, char *str);
+// int find_and_update(LRU_Cache *cache, char *str);
 
 #endif

@@ -9,14 +9,24 @@ int IS_FILE(char *str)
     {
         return -1; // path is invalid
     }
-    
+
     char *newstr = handle_slash(str);
+    if (newstr == NULL)
+    {
+        return -1;
+    }
+
     int x = is_file(__global_trie, newstr);
     free(newstr);
     return x;
 }
 char *handle_slash_v2(char *str) // dont ignore trailing '/'
 {
+    if (str == NULL)
+    {
+        return NULL;
+    }
+
     int len = (int)strlen(str);
     char *newstr = malloc((len + 3) * sizeof(char));
     int i = 0; // for str
@@ -40,6 +50,11 @@ int ls_v2(char *str, FILE *fp) // lists all files and subfiles
         return 1;
     }
     char *newstr = handle_slash_v2(str);
+    if (newstr == NULL)
+    {
+        return -1;
+    }
+
     int result = print_all_childs_v2(__global_trie, newstr, fp);
     return result;
 }
@@ -53,8 +68,13 @@ int search_v2(char *str, int *is_partial)
     }
 
     char *newstr = handle_slash(str);
+    if (newstr == NULL) 
+    {
+        return -1;
+    }
+    
 
-    int x = find_and_update(__global_lru, newstr);
+    int x = find_in_cache(__global_lru, newstr);
     if (x != -1)
     {
         is_partial = 0;
@@ -62,11 +82,17 @@ int search_v2(char *str, int *is_partial)
     }
 
     x = find_new(__global_trie, newstr, is_partial);
+    insert(__global_lru, x, newstr);
     return x;
 }
 
 char *handle_slash(char *str)
 {
+    if (str == NULL)
+    {
+        return NULL;
+    }
+
     int len = (int)strlen(str);
     char *newstr = malloc((len + 3) * sizeof(char));
     int i = 0; // for str
@@ -93,7 +119,17 @@ char *handle_slash(char *str)
 
 int create(int main_server, char *str) // takes main server and string path inserts in trie updates lru
 {
+    if (str == NULL)
+    {
+        return -1;
+    }
+    
     char *newstr = handle_slash_v2(str);
+    if (newstr == NULL)
+    {
+        return -1;
+    }
+    
     if (__global_trie == NULL)
     {
         initialize_trie(&__global_trie);
@@ -108,9 +144,13 @@ int create(int main_server, char *str) // takes main server and string path inse
     if (__global_lru == NULL)
     {
         __global_lru = (LRU_Cache *)malloc(sizeof(LRU_Cache));
-        insert(__global_lru, main_server, newstr);
-        return x;
+        __global_lru = malloc(sizeof(LRU_Cache));
+        __global_lru->head = NULL;
+        __global_lru->size = 0;
     }
+    // insert(__global_lru, main_server, newstr);
+    // return x;
+    // }
 
     insert(__global_lru, main_server, newstr);
     if (x == -1)
@@ -122,6 +162,11 @@ int create(int main_server, char *str) // takes main server and string path inse
 
 int delete_file_folder(char *str) // first deletes from LRU, then deletes from trie
 {
+    if (str == NULL)
+    {
+        return -1;
+    }
+    
     if (!__global_trie)
     {
         return -1;
@@ -143,6 +188,11 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
 
 int ls(char *str, FILE *fp) // lists all files and subfiles
 {
+    if (str == NULL || fp == NULL)
+    {
+        return -1;
+    }
+    
     if (!__global_trie)
     {
         return 1;
