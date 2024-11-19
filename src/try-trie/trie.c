@@ -125,8 +125,18 @@ int find_new(trienode *root, char *str, int *is_partial)
 
     if (i == (int)strlen(str))
     {
+        printf("here1\n");
         // is file, directory or incomplete match
-        *is_partial = 0;
+        // *is_partial = 0;
+        if (root->hashind != -1||root->child[(int)'/']!=NULL)
+        {
+            *is_partial = 0;
+            // return root->hashind;
+        }
+        else{
+            *is_partial = 1;
+        }
+        
         return find_subtree_new(root);
     }
     *is_partial = 1;
