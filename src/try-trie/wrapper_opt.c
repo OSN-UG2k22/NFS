@@ -96,7 +96,7 @@ int search_v2(char *str, int *is_partial)
     }
 
     x = find_new(__global_trie, newstr, is_partial);
-    insert(__global_lru, x, newstr);
+    insert(__global_lru, x, str);
     return x;
 }
 
@@ -180,6 +180,10 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     {
         return -1;
     }
+    if (__global_lru != NULL)
+    {
+        delete_from_cache(__global_lru, str);
+    }
 
     if (!__global_trie)
     {
@@ -194,7 +198,6 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
         return -1;
     }
 
-    delete_from_cache(__global_lru, newstr);
     delete_from_trie(__global_trie, newstr, x);
     return x;
     // return 1;
