@@ -256,20 +256,17 @@ void *handle_client(void *client_socket)
             MessageAddr msg_addr;
             msg_addr.op = OP_NS_REPLY_SS;
             char *tmp = strchr(msg->file, ':');
-            int src_exists;
-            int dest_exists;
-            src_exists = IS_FILE(tmp + 1);
-            *tmp = '\0';
-            dest_exists = IS_FILE(msg->file);
-            *tmp = ':';
-
+            int src_exists = 0;
+            int dest_exists = 0;
             if (!tmp)
             {
                 ecode = ERR_REQ;
             }
             else
             {
+                src_exists = IS_FILE(tmp + 1);
                 *tmp = '\0';
+                dest_exists = IS_FILE(msg->file);
                 ecode = sserver_by_path(msg->file, NULL, &msg_addr.addr, 1, 0);
                 if (ecode == ERR_NONE)
                 {

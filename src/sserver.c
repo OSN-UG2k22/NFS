@@ -441,7 +441,7 @@ void *handle_client(void *fd_ptr)
             sock_send_ack(sock_fd, &ecode);
             break;
         }
-        if (ecode == ERR_NONE)
+        if (ecode == ERR_NONE || ecode == ERR_QUIET)
         {
             printf("[CLIENT %d] Executed %s '%s'\n", sock_fd, operation, msg->file);
         }

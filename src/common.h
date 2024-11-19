@@ -97,7 +97,7 @@ static inline char *errcode_to_str(ErrCode ecode)
     case ERR_LOCK:
         return "Operation rejected (locked) due to another pending operation";
     case ERR_QUIET:
-        return "No need of asynchronous write because file size is small";
+        return "Doing async write";
     }
     return "Invalid error code";
 }
