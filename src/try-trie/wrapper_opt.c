@@ -44,21 +44,26 @@ char *handle_slash_v2(char *str) // dont ignore trailing '/'
 }
 int ls_v2(char *str, FILE *fp) // lists all files and subfiles
 {
+    if (str == NULL || fp == NULL)
+    {
+        return 0;
+    }
+
     if (!__global_trie)
     {
         // fprintf(fp, "", str); // to create file if it doesnt exist or make it empty
-        return 1;
+        return strcmp(str, "/") == 0;
     }
     char *newstr = handle_slash_v2(str);
     int arr = 0;
     int x = search_v2(newstr, &arr);
     if (x == -1 || arr)
     {
-        return -1;
+        return 0;
     }
     if (newstr == NULL)
     {
-        return -1;
+        return 0;
     }
 
     int result = print_all_childs_v2(__global_trie, newstr, fp);
@@ -195,12 +200,12 @@ int ls(char *str, FILE *fp) // lists all files and subfiles
 {
     if (str == NULL || fp == NULL)
     {
-        return -1;
+        return 0;
     }
 
     if (!__global_trie)
     {
-        return 1;
+        return strcmp(str, "/") == 0;
     }
 
     char *newstr = handle_slash(str);

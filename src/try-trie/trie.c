@@ -123,15 +123,9 @@ int find_new(trienode *root, char *str, int *is_partial)
         root = root->child[(unsigned char)str[i]];
     }
 
-    if (i == (int)strlen(str) && root->child[(int)'/'] == NULL)
+    if (i == (int)strlen(str))
     {
-        // is file or incomplete match
-        *is_partial = 0;
-        return root->hashind;
-    }
-    if (i == (int)strlen(str) && root->child[(int)'/'] != NULL)
-    {
-        // is directory
+        // is file, directory or incomplete match
         *is_partial = 0;
         return find_subtree_new(root);
     }

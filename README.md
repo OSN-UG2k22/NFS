@@ -7,3 +7,4 @@
   normal write is used. We chose this
   approach because it becomes hard to calculate the filesize.
 - The ack2 in the async write goes to the client directly without involving the nameserver.
+- Delete file operation is immediate and does not respect any read/write operation already running.
