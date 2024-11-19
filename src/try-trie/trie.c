@@ -125,7 +125,6 @@ int find_new(trienode *root, char *str, int *is_partial)
 
     if (i == (int)strlen(str))
     {
-        printf("here1\n");
         // is file, directory or incomplete match
         // *is_partial = 0;
         if (root->hashind != -1||root->child[(int)'/']!=NULL)
@@ -199,7 +198,6 @@ int delrec2(trienode *parent, trienode *child, int i, char *str, int assn)
 
     if (str[i] == '\0')
     {
-        printf("Reached end of path at %c and i:%d \n", str[i - 1], i);
         // int hasChildren = 0;
         // for (int k = 0; k < 256; k++) {
         //     if (k==(int)'/')

@@ -83,6 +83,10 @@ end:
 ErrCode _sserver_random(char *path, int *sserver_id)
 {
     int ret = ERR_SS;
+    if (sservers_count == 0)
+    {
+        return ret;
+    }
 
     /* First try random */
     int rand_id;
