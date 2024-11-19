@@ -23,7 +23,7 @@ int print_all_childs_v2(trienode *root, char *str, FILE *fp);
 int trieinsert(trienode *temp, char *str, int hashind); // returns -1 if duplicate, if success returns hashind
 int is_file(trienode *root, char *str);
 
-int delete_from_trie(trienode *root, char *str);
+int delete_from_trie(trienode *root, char *str, int assn);
 void initialize_trie(trienode **root);
 
 int find_subtree_new(trienode *node);

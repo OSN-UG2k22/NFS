@@ -271,7 +271,7 @@ void delete_test()
     // ls("home", stdout);
     ls_v2("/", stdout);
     printf("--------------------------------------\n");
-    // printf("calling delete on home/abc/\n");
+    printf("calling delete on home/abc/\n");
     delete_file_folder("home/abc/");
     printf("AFTER THIS--------------------------------------\n");
     ls("home", stdout);
@@ -283,7 +283,7 @@ void test_serach_delete()
     // assert(create(2, "home/okbro/") != -1);
     // assert(create(2, "home/b.txt") != -1);
     assert(create(5, "home/abc/def/ghi/") != -1);
-    assert(create(4, "home/ab.txt") != -1);
+    assert(create(0, "home/ab.txt") != -1);
     assert(create(4, "home/abc/def/a.txt") != -1);
     assert(create(6, "home/abc/def/ghi/jkl/mno/") != -1);
     assert(create(3, "home/abc/def/") != -1);
@@ -295,10 +295,29 @@ void test_serach_delete()
     int x = search_v2("home/abc/def", &ispar);
     printf("%d", x);
 }
-
+void test_new_del()
+{
+    assert(create(2,"/jo/mo/")!=-1);
+    assert(create(2,"/jo/m.txt")!=-1);
+    ls_v2("/",stdout);
+    delete_file_folder("/jo/mo/");
+    printf("-----------------------\n");
+    ls_v2("/",stdout);
+}
+void test_new_del_2()
+{
+    assert(create(2,"/jo/mon/")!=-1);
+    assert(create(2,"/jo/mok.txt")!=-1);
+    ls_v2("/",stdout);
+    delete_file_folder("/jo/mon/");
+    printf("-----------------------\n");
+    ls_v2("/",stdout);
+}
 int main()
 {
-    test_serach_delete();
+    test_new_del();
+    // test_new_del_2();
+    // test_serach_delete();
     // delete_test();
     // Is_file();
     // my_fix();

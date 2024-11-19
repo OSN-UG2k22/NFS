@@ -28,7 +28,7 @@ void print_all_subtree_complete(trienode *node, char *path, int level, FILE *fp,
         return;
     }
 
-    if (node->hashind != -1)
+    // if (node->hashind != -1)
     {
         path[level] = '\0';
         int cnt = 0;
@@ -186,53 +186,70 @@ void initialize_trie(trienode **root)
     return;
 }
 
-int delete_from_trie(trienode *root, char *str)
-{
-    if (root == NULL)
-    {
+int delrec2(trienode *parent, trienode *child, int i, char *str,int assn) {
+    if (child == NULL) {
+        return 0;
+    }
+
+    if (str[i] == '\0') {
+        // printf("Reached end of path at %c and i:%d \n", str[i - 1],i);
+        int hasChildren = 0;
+        for (int k = 0; k < 256; k++) {
+            if (k==(int)'/')
+            {
+                continue;
+            }
+            if (child->child[k] != NULL) {
+                hasChildren = 1;
+                break;
+            }
+        }
+        if (hasChildren) {
+            return 0;
+        }
+        free(child); 
+        if (parent) {
+            parent->child[(unsigned int)str[i - 1]] = NULL;
+            parent->hashind = assn;
+        }
+        return 1;
+    }
+
+    int nextIndex = (unsigned int)str[i];
+    int x = delrec2(child, child->child[nextIndex], i + 1, str,assn);
+
+    if (x) {
+        int hasChildren = 0;
+        for (int k = 0; k < 256; k++) {
+            // if (k==(int)'/')
+            // {
+            //     continue;
+            // }
+            
+            if (child->child[k] != NULL) {
+                hasChildren = 1;
+                break;
+            }
+        }
+        if (!hasChildren) {
+            free(child);
+            if (parent) {
+                parent->child[nextIndex] = NULL;
+                parent->hashind = assn;
+            }
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+int delete_from_trie(trienode *root, char *str,int assn) {
+    if (root == NULL) {
         return -1;
     }
-    trienode *lastslash = root;
-    int slahind = 0;
-    char todel = '/';
-    for (int i = 0; i < (int)strlen(str); i++)
-    {
-        if (root == NULL)
-        {
-            return -1;
-        }
-        if (str[i] == '/')
-        {
-            lastslash = root;
-            if (i + 1 < (int)strlen(str))
-            {
-                todel = str[i + 1];
-            }
 
-            slahind = i;
-        }
-        root = root->child[(unsigned int)str[i]];
-    }
-    trienode *traverse = lastslash;
-    for (int i = slahind; i < (int)strlen(str); i++)
-    {
-        int cnt = 0;
-        for (int i = 0; i < 256; i++)
-        {
-            if (traverse->child[i] != NULL)
-            {
-                cnt++;
-            }
-        }
-        if (cnt > 1)
-        {
-            lastslash = traverse;
-            todel = str[i];
-        }
-        traverse = traverse->child[(unsigned int)str[i]];
-    }
-    lastslash->child[(unsigned int)todel] = NULL;
-    return 1;
+    return delrec2(NULL, root->child[(unsigned int)str[0]], 1, str,assn);
 }
 void print_all_subtree(trienode *node, char *path, int level, FILE *fp)
 {

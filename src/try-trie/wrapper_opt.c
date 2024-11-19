@@ -68,11 +68,10 @@ int search_v2(char *str, int *is_partial)
     }
 
     char *newstr = handle_slash(str);
-    if (newstr == NULL) 
+    if (newstr == NULL)
     {
         return -1;
     }
-    
 
     int x = find_in_cache(__global_lru, newstr);
     if (x != -1)
@@ -123,13 +122,13 @@ int create(int main_server, char *str) // takes main server and string path inse
     {
         return -1;
     }
-    
+
     char *newstr = handle_slash_v2(str);
     if (newstr == NULL)
     {
         return -1;
     }
-    
+
     if (__global_trie == NULL)
     {
         initialize_trie(&__global_trie);
@@ -166,7 +165,7 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     {
         return -1;
     }
-    
+
     if (!__global_trie)
     {
         return -1;
@@ -181,7 +180,7 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     }
 
     delete_from_cache(__global_lru, newstr);
-    delete_from_trie(__global_trie, newstr);
+    delete_from_trie(__global_trie, newstr, x);
     return x;
     // return 1;
 }
@@ -192,7 +191,7 @@ int ls(char *str, FILE *fp) // lists all files and subfiles
     {
         return -1;
     }
-    
+
     if (!__global_trie)
     {
         return 1;

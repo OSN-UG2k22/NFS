@@ -94,6 +94,7 @@ int find_in_cache(LRU_Cache *lru, char *temp)
             current->prev = NULL;
             current->next = lru->head;
             lru->head->prev = current;
+            lru->head = current;
             return current->hashind;
         }
         current = current->next;
