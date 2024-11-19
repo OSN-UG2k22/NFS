@@ -77,26 +77,23 @@ int search_v2(char *str, int *is_partial)
     {
         return -1; // is partial doesnt matter invalid str path
     }
-    if (str == NULL)
+
+    char *newstr = handle_slash(str);
+    char *newstr2 = handle_slash_v2(str);
+    if (newstr == NULL)
     {
         return -1;
     }
 
-    int x = find_in_cache(__global_lru, str);
+    int x = find_in_cache(__global_lru, newstr2);
     if (x != -1)
     {
         is_partial = 0;
         return x;
     }
 
-    char *newstr = handle_slash(str);
-    if (newstr == NULL)
-    {
-        return -1;
-    }
-
     x = find_new(__global_trie, newstr, is_partial);
-    insert(__global_lru, x, str);
+    insert(__global_lru, x, newstr2);
     return x;
 }
 
@@ -180,10 +177,6 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     {
         return -1;
     }
-    if (__global_lru != NULL)
-    {
-        delete_from_cache(__global_lru, str);
-    }
 
     if (!__global_trie)
     {
@@ -191,6 +184,7 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
     }
 
     char *newstr = handle_slash(str);
+    char *newstr2 = handle_slash_v2(str);
     int arr = 0;
     int x = search_v2(newstr, &arr);
     if (x == -1 || arr)
@@ -198,6 +192,7 @@ int delete_file_folder(char *str) // first deletes from LRU, then deletes from t
         return -1;
     }
 
+    delete_from_cache(__global_lru, newstr2);
     delete_from_trie(__global_trie, newstr, x);
     return x;
     // return 1;
