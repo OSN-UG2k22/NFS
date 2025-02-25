@@ -20,6 +20,7 @@ This project implements a **Network File System (NFS)** as part of an [Operating
 - **Make**
 - **POSIX-compatible OS (Linux/macOS)**
 - **TCP Networking Support**
+- **LibVLC** (for audio streaming)
 
 ### Compilation
 Run the following command in the project root:
